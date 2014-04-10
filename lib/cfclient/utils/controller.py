@@ -12,6 +12,7 @@ import numpy as np
 import time
 import math
 import logging
+from pid import PID_RP, PID
 
 class Controller(QtCore.QThread):
 
@@ -36,17 +37,45 @@ class Controller(QtCore.QThread):
         self.thrust = 0
 
         self.cf = cf
-
+        self.fly_en = False
         k1 = 1.1863
         k2 = 2842.5
         k3 = 0.1236
 
+        # Max depth : 208 cm, Min depth : 101 cm
         self.min_depth_in_cm = int(100 * (k3 * math.tan(self.min_raw_depth / k2 + k1)))
         self.max_depth_in_cm = int(100 * (k3 * math.tan(self.max_raw_depth / k2 + k1)))
 
-    def update_thrust(self, r, p, y, thrust):
+        self.r_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+        # self.r_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+        self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+        # self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+        self.t_pid = PID(P=80, D=500.0, I=40, set_point=0.0)
 
-        self.thrust = thrust
+        self.set_x = 320
+        self.set_y = 240
+        self.set_z = 130
+
+        self.calc_pitch = 0
+        self.calc_roll = 0
+
+        self.LIMIT = 20
+
+        self.trim_roll = 0
+        self.trim_pitch = 0
+
+    def set_auto_fly(self, en):
+        logging.info('auto fly : {}'.format(en))
+
+        self.fly_en = en
+
+    def update_thrust(self, r, p, y, thrust):
+        # if thrust > 50000:
+        #     self.fly_en = True
+        # else:
+        #     self.fly_en = False
+        #
+        self.thrust_pad = thrust
 
     def depth_convert(self, depth):
         max_depth_val = 925
@@ -164,6 +193,14 @@ class Controller(QtCore.QThread):
         # self.PositionUpdated.emit(0, 0, 0)
         return (-1,-1,-1)
 
+    def set_target_x(self, x):
+        self.set_x = x
+
+    def set_target_y(self, y):
+        self.set_y = y
+
+    def set_target_z(self, z):
+        self.set_z = z
 
     def run(self):
         d_time_count = 0
@@ -174,8 +211,45 @@ class Controller(QtCore.QThread):
 
             pos = self.get_position()
 
-            # print pos
-            # logging.info(pos)
+            if pos[0] != -1 and pos[1] != -1 and pos[2] != -1:
+
+                # logging.info('pos : {}'.format(pos))
+
+                roll = self.r_pid.update(self.set_x - pos[0])
+                pitch = self.p_pid.update(self.set_y - pos[1])
+                thrust = self.t_pid.update(self.set_z - pos[2])
+
+                roll_sp = -roll
+                pitch_sp = pitch
+                thrust_sp = (thrust) + 42000
+
+                if roll_sp > self.LIMIT: roll_sp = self.LIMIT
+                elif roll_sp < -self.LIMIT: roll_sp = -self.LIMIT
+
+                if pitch_sp > self.LIMIT: pitch_sp = self.LIMIT
+                elif pitch_sp < -self.LIMIT: pitch_sp = -self.LIMIT
+
+                if thrust_sp > 63000: thrust_sp = 63000
+                elif thrust_sp < 0: thrust_sp = 0
+
+                self.calc_pitch = pitch_sp
+                self.calc_roll = roll_sp
+                self.thrust = thrust_sp
+
+                # logging.info('th pad : {}, th : {}'.format(self.thrust_pad, thrust_sp))
+
+            self.trim_pitch = 0
+            self.trim_roll = 0
+
+            self.final_roll = self.calc_roll + self.trim_roll
+            self.final_pitch = self.calc_pitch + self.trim_pitch
+
+            if self.fly_en:
+                self.cf.commander.send_setpoint(self.final_roll, self.final_pitch, 0, self.thrust)
+            else:
+                self.cf.commander.send_setpoint(0, 0, 0, self.thrust_pad)
+
+
 
             end_time = time.clock()
 
@@ -183,14 +257,10 @@ class Controller(QtCore.QThread):
             n_frame_count += 1
 
             if n_frame_count > 10:
-                logging.info('avg time : {}'.format(d_time_count / n_frame_count))
-                # print()
+                # logging.info('avg time : {}'.format(d_time_count / n_frame_count))
+                # logging.info("max depth : {} cm,  min depth : {}".format(self.max_depth_in_cm, self.min_depth_in_cm))
+
                 d_time_count = 0
                 n_frame_count = 0
-
-            self.trim_roll = 0
-            self.trim_pitch = 0
-
-            self.cf.commander.send_setpoint(self.trim_roll, self.trim_pitch, 0, self.thrust)
 
             time.sleep(0.0001)

@@ -105,12 +105,12 @@ class FlightTab(Tab, flight_tab_class):
         self.helper.inputDeviceReader.emergency_stop_updated.add_callback(
                                      self._emergency_stop_updated_signal.emit)
         
-        self.helper.inputDeviceReader.althold_updated.add_callback(
-                    lambda enabled: self.helper.cf.param.set_value("flightmode.althold", enabled))
+        # self.helper.inputDeviceReader.althold_updated.add_callback(
+        #             lambda enabled: self.helper.cf.param.set_value("flightmode.althold", enabled))
 
         self._imu_data_signal.connect(self._imu_data_received)
         self._baro_data_signal.connect(self._baro_data_received)
-        self._althold_data_signal.connect(self._althold_data_received)
+        # self._althold_data_signal.connect(self._althold_data_received)
         self._motor_data_signal.connect(self._motor_data_received)
 
         self._log_error_signal.connect(self._logging_error)
@@ -154,11 +154,11 @@ class FlightTab(Tab, flight_tab_class):
                     group="flightmode", name="ratepid",
                     cb=(lambda name, checked:
                     self.ratePidRadioButton.setChecked(eval(checked))))
-        
-        self.helper.cf.param.add_update_callback(
-                    group="flightmode", name="althold",
-                    cb=(lambda name, enabled:
-                    self.helper.inputDeviceReader.setAltHold(eval(enabled))))
+        #
+        # self.helper.cf.param.add_update_callback(
+        #             group="flightmode", name="althold",
+        #             cb=(lambda name, enabled:
+        #             self.helper.inputDeviceReader.setAltHold(eval(enabled))))
 
         self.helper.cf.param.add_update_callback(
                         group="imu_sensors",

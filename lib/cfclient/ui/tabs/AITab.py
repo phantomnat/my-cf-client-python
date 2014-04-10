@@ -120,6 +120,9 @@ class AITab(Tab, plot_tab_class):
 
         # self.controller = Controller(self, helper.cf)
         helper.inputDeviceReader.input_updated.add_callback(self.controller.update_thrust)
+
+        helper.inputDeviceReader.autofly_updated.add_callback(self.controller.set_auto_fly)
+
         # # self.controller.PlotUpdated.connect(self._data_received)
         #
         #
@@ -147,6 +150,16 @@ class AITab(Tab, plot_tab_class):
         # self.dsbPitchKD.setValue(self.controller._y_kd)
         # self.dsbPitchKP.valueChanged.connect(self.controller._y_kp_changed)
         # self.dsbPitchKI.valueChanged.connect(self.controller._y_ki_changed)
+
+        # self.hsYTargetPos.valueChanged.connect(self.controller.set_target_y)
+        self.controller.set_target_x(self.hsXTargetPos.value())
+        self.controller.set_target_y(self.hsYTargetPos.value())
+        self.controller.set_target_z(self.hsZTargetPos.value())
+
+        self.hsXTargetPos.valueChanged.connect(self.controller.set_target_x)
+        self.hsYTargetPos.valueChanged.connect(self.controller.set_target_y)
+        self.hsZTargetPos.valueChanged.connect(self.controller.set_target_z)
+
         self.controller.PositionUpdated.connect(self._data_received)
         #
         #
@@ -159,10 +172,10 @@ class AITab(Tab, plot_tab_class):
         self._plot.add_curve('actual.z', self.colors[color_selector % len(self.colors)])
 
         #
-        # color_selector += 1
-        # self._plot.add_curve('target.x', self.colors[color_selector % len(self.colors)])
-        # color_selector += 1
-        # self._plot.add_curve('target.y', self.colors[color_selector % len(self.colors)])
+        color_selector += 1
+        self._plot.add_curve('target.x', self.colors[color_selector % len(self.colors)])
+        color_selector += 1
+        self._plot.add_curve('target.y', self.colors[color_selector % len(self.colors)])
         # color_selector += 1
         # self._plot.add_curve('target.z', self.colors[color_selector % len(self.colors)])
         #
@@ -191,10 +204,10 @@ class AITab(Tab, plot_tab_class):
 
         pos = {}
         pos['actual.x'] = x
-        # pos['target.x'] = 320
+        pos['target.x'] = 320
 
         pos['actual.y'] = y
-        # pos['target.y'] = 240
+        pos['target.y'] = 240
 
 
         pos['actual.z'] = z

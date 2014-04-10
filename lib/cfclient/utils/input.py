@@ -83,6 +83,8 @@ class JoystickReader:
         self._old_thrust = 0
         self._old_alt_hold = False
 
+        self._old_auto_fly = False
+
         self._trim_roll = Config().get("trim_roll")
         self._trim_pitch = Config().get("trim_pitch")
 
@@ -144,6 +146,7 @@ class JoystickReader:
         self.device_discovery = Caller()
         self.device_error = Caller()
         self.althold_updated = Caller()
+        self.autofly_updated = Caller()
 
     def setAltHoldAvailable(self, available):
         self._has_pressure_sensor = available
@@ -254,10 +257,14 @@ class JoystickReader:
             trim_roll = data["rollcal"]
             trim_pitch = data["pitchcal"]
             althold = data["althold"]
+            autofly = data["autofly"]
 
-            if (self._old_alt_hold != althold):
-                self.althold_updated.call(str(althold))
-                self._old_alt_hold = althold
+            if self._old_auto_fly != autofly:
+                self.autofly_updated.call(autofly)
+                self._old_auto_fly = autofly
+            # if (self._old_alt_hold != althold):
+            #     self.althold_updated.call(str(althold))
+            #     self._old_alt_hold = althold
 
             if self._emergency_stop != emergency_stop:
                 self._emergency_stop = emergency_stop

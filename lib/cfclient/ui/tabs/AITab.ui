@@ -35,32 +35,6 @@
          <property name="title">
           <string>PID Controller</string>
          </property>
-         <widget class="QLabel" name="lblServerStatus">
-          <property name="geometry">
-           <rect>
-            <x>270</x>
-            <y>180</y>
-            <width>121</width>
-            <height>16</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Status :: Disconnected</string>
-          </property>
-         </widget>
-         <widget class="QLabel" name="lblClient">
-          <property name="geometry">
-           <rect>
-            <x>270</x>
-            <y>200</y>
-            <width>181</width>
-            <height>16</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>TextLabel</string>
-          </property>
-         </widget>
          <widget class="QPushButton" name="pushButton">
           <property name="geometry">
            <rect>
@@ -74,35 +48,6 @@
            <string>PushButton</string>
           </property>
          </widget>
-         <widget class="QPushButton" name="btnStart">
-          <property name="geometry">
-           <rect>
-            <x>270</x>
-            <y>20</y>
-            <width>75</width>
-            <height>23</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Start/Stop</string>
-          </property>
-         </widget>
-         <widget class="QSpinBox" name="sbThrust">
-          <property name="geometry">
-           <rect>
-            <x>270</x>
-            <y>70</y>
-            <width>61</width>
-            <height>22</height>
-           </rect>
-          </property>
-          <property name="minimum">
-           <number>10001</number>
-          </property>
-          <property name="maximum">
-           <number>60000</number>
-          </property>
-         </widget>
          <widget class="QWidget" name="verticalLayoutWidget">
           <property name="geometry">
            <rect>
@@ -113,6 +58,82 @@
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_2">
+           <item>
+            <widget class="QLabel" name="label_4">
+             <property name="text">
+              <string>X position</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSlider" name="hsXTargetPos">
+             <property name="maximum">
+              <number>640</number>
+             </property>
+             <property name="value">
+              <number>320</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_5">
+             <property name="text">
+              <string>Y position</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSlider" name="hsYTargetPos">
+             <property name="maximum">
+              <number>480</number>
+             </property>
+             <property name="value">
+              <number>240</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_12">
+             <property name="text">
+              <string>Z position</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSlider" name="hsZTargetPos">
+             <property name="minimum">
+              <number>101</number>
+             </property>
+             <property name="maximum">
+              <number>208</number>
+             </property>
+             <property name="value">
+              <number>140</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
            <item>
             <widget class="QGroupBox" name="gbXController">
              <property name="minimumSize">
@@ -245,316 +266,7 @@
              </widget>
             </widget>
            </item>
-           <item>
-            <widget class="QGroupBox" name="groupBox">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>80</height>
-              </size>
-             </property>
-             <property name="title">
-              <string>Y Control (Pitch)</string>
-             </property>
-             <widget class="QDoubleSpinBox" name="dsbPitchKI">
-              <property name="geometry">
-               <rect>
-                <x>70</x>
-                <y>20</y>
-                <width>51</width>
-                <height>22</height>
-               </rect>
-              </property>
-              <property name="singleStep">
-               <double>0.000100000000000</double>
-              </property>
-             </widget>
-             <widget class="QDoubleSpinBox" name="dsbPitchKD">
-              <property name="geometry">
-               <rect>
-                <x>130</x>
-                <y>20</y>
-                <width>51</width>
-                <height>22</height>
-               </rect>
-              </property>
-              <property name="singleStep">
-               <double>0.000100000000000</double>
-              </property>
-             </widget>
-             <widget class="QDoubleSpinBox" name="dsbPitchKP">
-              <property name="geometry">
-               <rect>
-                <x>10</x>
-                <y>20</y>
-                <width>51</width>
-                <height>22</height>
-               </rect>
-              </property>
-              <property name="maximum">
-               <double>100.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.000100000000000</double>
-              </property>
-             </widget>
-             <widget class="QDoubleSpinBox" name="dsbPitchTrimValue">
-              <property name="geometry">
-               <rect>
-                <x>70</x>
-                <y>50</y>
-                <width>51</width>
-                <height>22</height>
-               </rect>
-              </property>
-              <property name="minimum">
-               <double>-19.989999999999998</double>
-              </property>
-              <property name="maximum">
-               <double>19.989999999999998</double>
-              </property>
-              <property name="singleStep">
-               <double>0.100000000000000</double>
-              </property>
-             </widget>
-             <widget class="QLabel" name="label_5">
-              <property name="geometry">
-               <rect>
-                <x>10</x>
-                <y>50</y>
-                <width>51</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="text">
-               <string>Pitch Trim</string>
-              </property>
-             </widget>
-            </widget>
-           </item>
-           <item>
-            <widget class="QGroupBox" name="groupBox_2">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>100</height>
-              </size>
-             </property>
-             <property name="title">
-              <string>Z Control (Thrust)</string>
-             </property>
-             <widget class="QDoubleSpinBox" name="dsbThrustKI">
-              <property name="geometry">
-               <rect>
-                <x>70</x>
-                <y>50</y>
-                <width>51</width>
-                <height>22</height>
-               </rect>
-              </property>
-              <property name="singleStep">
-               <double>0.000100000000000</double>
-              </property>
-             </widget>
-             <widget class="QDoubleSpinBox" name="dsbThrustKD">
-              <property name="geometry">
-               <rect>
-                <x>130</x>
-                <y>50</y>
-                <width>51</width>
-                <height>22</height>
-               </rect>
-              </property>
-              <property name="singleStep">
-               <double>0.000100000000000</double>
-              </property>
-             </widget>
-             <widget class="QDoubleSpinBox" name="dsbThrustKP">
-              <property name="geometry">
-               <rect>
-                <x>10</x>
-                <y>50</y>
-                <width>51</width>
-                <height>22</height>
-               </rect>
-              </property>
-              <property name="maximum">
-               <double>100.000000000000000</double>
-              </property>
-              <property name="singleStep">
-               <double>0.000100000000000</double>
-              </property>
-             </widget>
-             <widget class="QSpinBox" name="sbMaxThrustLimit">
-              <property name="geometry">
-               <rect>
-                <x>90</x>
-                <y>20</y>
-                <width>61</width>
-                <height>22</height>
-               </rect>
-              </property>
-              <property name="minimum">
-               <number>10001</number>
-              </property>
-              <property name="maximum">
-               <number>60000</number>
-              </property>
-              <property name="singleStep">
-               <number>10000</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="label_4">
-              <property name="geometry">
-               <rect>
-                <x>10</x>
-                <y>20</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="text">
-               <string>Max thrust limit</string>
-              </property>
-             </widget>
-            </widget>
-           </item>
-           <item>
-            <spacer name="verticalSpacer">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
           </layout>
-         </widget>
-         <widget class="QLabel" name="label_7">
-          <property name="geometry">
-           <rect>
-            <x>270</x>
-            <y>50</y>
-            <width>71</width>
-            <height>16</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Manual Thrust</string>
-          </property>
-         </widget>
-         <widget class="QSpinBox" name="sbTargetX">
-          <property name="geometry">
-           <rect>
-            <x>280</x>
-            <y>120</y>
-            <width>41</width>
-            <height>22</height>
-           </rect>
-          </property>
-          <property name="minimum">
-           <number>0</number>
-          </property>
-          <property name="maximum">
-           <number>640</number>
-          </property>
-          <property name="value">
-           <number>320</number>
-          </property>
-         </widget>
-         <widget class="QSpinBox" name="sbTargetY">
-          <property name="geometry">
-           <rect>
-            <x>340</x>
-            <y>120</y>
-            <width>41</width>
-            <height>22</height>
-           </rect>
-          </property>
-          <property name="minimum">
-           <number>0</number>
-          </property>
-          <property name="maximum">
-           <number>480</number>
-          </property>
-          <property name="value">
-           <number>240</number>
-          </property>
-         </widget>
-         <widget class="QLabel" name="label_8">
-          <property name="geometry">
-           <rect>
-            <x>270</x>
-            <y>100</y>
-            <width>41</width>
-            <height>16</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Target</string>
-          </property>
-         </widget>
-         <widget class="QLabel" name="label_9">
-          <property name="geometry">
-           <rect>
-            <x>270</x>
-            <y>120</y>
-            <width>21</width>
-            <height>21</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>X</string>
-          </property>
-         </widget>
-         <widget class="QLabel" name="label_10">
-          <property name="geometry">
-           <rect>
-            <x>330</x>
-            <y>120</y>
-            <width>21</width>
-            <height>21</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Y</string>
-          </property>
-         </widget>
-         <widget class="QSpinBox" name="sbTargetHeight">
-          <property name="geometry">
-           <rect>
-            <x>310</x>
-            <y>150</y>
-            <width>71</width>
-            <height>22</height>
-           </rect>
-          </property>
-          <property name="minimum">
-           <number>0</number>
-          </property>
-          <property name="maximum">
-           <number>2000</number>
-          </property>
-          <property name="value">
-           <number>500</number>
-          </property>
-         </widget>
-         <widget class="QLabel" name="label_11">
-          <property name="geometry">
-           <rect>
-            <x>270</x>
-            <y>150</y>
-            <width>41</width>
-            <height>21</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Height</string>
-          </property>
          </widget>
         </widget>
        </item>
