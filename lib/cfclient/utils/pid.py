@@ -92,6 +92,11 @@ class PID:
         self.Integrator=0
         self.Derivator=0
 
+    def tuning(self, kp, kd, ki):
+        self.Kp = kp
+        self.Ki = ki
+        self.Kd = kd
+
 class PID_RP:
 
     def __init__(self, P=1.0, I=0.0, D=10.0, Derivator=0, Integrator=0,
@@ -154,7 +159,7 @@ class PID_RP:
         self.Integrator=0
         self.Derivator=0
 
-    def tuning(self, kp, ki, kd):
+    def tuning(self, kp, kd, ki):
         self.Kp = kp
         self.Ki = ki
         self.Kd = kd

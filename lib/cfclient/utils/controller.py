@@ -48,11 +48,11 @@ class Controller(QtCore.QThread):
         self.min_depth_in_cm = int(100 * (k3 * math.tan(self.min_raw_depth / k2 + k1)))
         self.max_depth_in_cm = int(100 * (k3 * math.tan(self.max_raw_depth / k2 + k1)))
 
-        self.r_pid = PID_RP(P=0.1, D=1.0, I=0.00025, set_point=0.0)
+        self.r_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
         # self.r_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
-        self.p_pid = PID_RP(P=0.1, D=1.0, I=0.00025, set_point=0.0)
+        self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
         # self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
-        self.t_pid = PID(P=80, D=500.0, I=40, set_point=0.0)
+        self.t_pid = PID(P=40, D=400.0, I=40, set_point=0.0)
 
         self.set_x = 320
         self.set_y = 240
@@ -193,7 +193,7 @@ class Controller(QtCore.QThread):
             return ret_pos
 
         # self.PositionUpdated.emit(0, 0, 0)
-        return (-1,-1,-1)
+        return (-1, -1, -1)
 
     def set_target_x(self, x):
         self.set_x = x
@@ -220,15 +220,23 @@ class Controller(QtCore.QThread):
 
                 agg_p_tuning = True if math.fabs(self.set_y - pos[1]) > 10 else False
 
+                agg_t_tuning = True if math.fabs(self.set_z - pos[2]) > 10 else False
+
                 if agg_r_tuning:
-                    self.r_pid.tuning(0.1, 1.0, 0.00025)
+                    self.r_pid.tuning(0.05, 1.0, 0.00025)
                 else:
-                    self.r_pid.tuning(0.035, 1.0, 0.0003)
+                    self.r_pid.tuning(0.025, 1.0, 0.00025)
 
                 if agg_p_tuning:
-                    self.p_pid.tuning(0.1, 1.0, 0.00025)
+                    self.p_pid.tuning(0.05, 1.0, 0.00025)
                 else:
-                    self.p_pid.tuning(0.035, 1.0, 0.0003)
+                    self.p_pid.tuning(0.025, 1.0, 0.00025)
+
+                if agg_t_tuning:
+                    self.t_pid.tuning(60, 500, 40)
+                else:
+                    self.t_pid.tuning(20, 500, 40)
+
 
                 roll = self.r_pid.update(self.set_x - pos[0])
                 pitch = self.p_pid.update(self.set_y - pos[1])
