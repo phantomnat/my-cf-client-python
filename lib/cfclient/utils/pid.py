@@ -27,6 +27,7 @@
 #  MA  02110-1301, USA.
 
 import math
+import time
 
 class PID:
 
@@ -149,3 +150,136 @@ class PID_RP:
         self.Integrator=0
         self.Derivator=0
 
+    def reset(self):
+        self.Integrator=0
+        self.Derivator=0
+
+    def tuning(self, kp, ki, kd):
+        self.Kp = kp
+        self.Ki = ki
+        self.Kd = kd
+
+class ArduinoPID:
+
+    myInput = 0
+    myOutput = 0
+    mySetpoint = 0
+
+    inAuto = False
+    kp = 0
+    ki = 0
+    kd = 0
+    controllerDirection = 0
+    dispKp = 0
+    dispKi = 0
+    dispKd = 0
+
+    ITerm = 0
+    lastInput = 0
+    outMin = 0.0
+    outMax = 0.0
+    lastTime = 0.0
+
+    def __init__(self, Input, Output, Setpoint, Kp, Ki, Kd, ControllerDirection = 0):
+        self.myInput = Input
+        self.myOutput = Output
+        self.mySetpoint = Setpoint
+        self.inAuto = False
+
+        self.SetOutputLimits(0, 100)
+
+        self.SampleTime = 20    # 20 ms
+
+        self.SetControllerDirection(ControllerDirection)
+        self.SetTuning(Kp, Ki, Kd)
+
+        self.lastTime = (time.clock() * 1000) - self.SampleTime
+
+    def GetOutput(self):
+        return self.myOutput
+
+    def Compute(self, input):
+        if not self.inAuto: return False
+        now = time.clock() * 1000
+        timeChange = now - self.lastTime
+        self.myInput = input
+
+        if timeChange > self.SampleTime:
+
+            error = self.mySetpoint - input
+            self.ITerm += (self.ki * error)
+
+            if self.ITerm > self.outMax: self.ITerm = self.outMax
+            elif self.ITerm < self.outMin: self.ITerm = self.outMin
+
+            deltaInput = input - self.lastInput
+
+            output = self.kp * error + self.ITerm - self.kd * deltaInput
+
+            if output > self.outMax: output = self.outMax
+            elif output < self.outMin: output = self.outMin
+
+            self.myOutput = output
+            self.lastInput = input
+            self.lastTime = now
+
+            return True
+
+        return False
+
+    def SetTuning(self, kp, ki, kd):
+        if kp < 0 or ki < 0 or kd < 0: return
+
+        self.dispKp = kp
+        self.dispKi = ki
+        self.dispKd = kd
+
+        SampleTimeInSec = self.SampleTime / 1000.0
+
+        self.kp = kp
+        self.ki = ki * SampleTimeInSec
+        self.kd = kd / SampleTimeInSec
+
+        if self.controllerDirection == 1:
+            self.kp = 1 - self.kp
+            self.ki = 1 - self.ki
+            self.kd = 1 - self.kd
+
+    def SetSampleTime(self, NewSampleTime):
+        if NewSampleTime > 0:
+            ratio = NewSampleTime / float(self.SampleTime)
+            self.ki += ratio
+            self.kd /= ratio
+            self.SampleTime = NewSampleTime
+
+    def SetOutputLimits(self, _min, _max):
+        if min > max: return
+        self.outMax = _max
+        self.outMin = _min
+
+        if self.inAuto:
+            if self.myOutput > self.outMax: self.myOutput = self.outMax
+            elif self.myOutput < self.outMin: self.myOutput = self.outMin
+
+            if self.ITerm > self.outMax: self.ITerm = self.outMax
+            elif self.ITerm < self.outMin: self.ITerm = self.outMin
+
+    def SetMode(self, mode = True):
+        if mode == ~self.inAuto:
+            self.Initialize()
+        self.inAuto = mode
+
+    def Initialize(self):
+        self.ITerm = self.myOutput
+        self.lastInput= self.myInput
+        if self.ITerm > self.outMax:
+            self.ITerm = self.outMax
+        elif self.ITerm < self.outMin:
+            self.ITerm = self.outMin
+
+    def SetControllerDirection(self, direction):
+        if self.inAuto and direction != self.controllerDirection:
+            self.kp = 1 - self.kp
+            self.ki = 1 - self.ki
+            self.kd = 1 - self.kd
+        self.controllerDirection = direction
