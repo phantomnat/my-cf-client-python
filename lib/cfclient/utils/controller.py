@@ -3,7 +3,8 @@ __author__ = 'messierz'
 import time
 import logging
 from cflib.utils.callbacks import Caller
-from PyQt4 import QtCore
+from PyQt4 import QtCore, QtGui
+from PyQt4.QtGui import QImage, QPixmap
 
 import freenect
 import cv2
@@ -19,6 +20,8 @@ class Controller(QtCore.QThread):
     PlotUpdated = Caller()
     # PIDDataUpdated = QtCore.pyqtSignal(object, float)
     PositionUpdated = QtCore.pyqtSignal(int, int, int)
+
+    ImageUpdated = QtCore.pyqtSignal(QPixmap);
 
     ThrustUpdated = Caller()
 
@@ -93,11 +96,13 @@ class Controller(QtCore.QThread):
     def get_position(self):
         global last_depth_data
 
+
         raw_depth = freenect.sync_get_depth()[0]
 
         self.last_raw_depth = np.copy(raw_depth)
 
         depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
+
 
         ret, th_img = cv2.threshold(depth_image, 240, 255, cv2.THRESH_BINARY )
 
@@ -204,6 +209,27 @@ class Controller(QtCore.QThread):
     def set_target_z(self, z):
         self.set_z = z
 
+    def get_image(self):
+        raw_depth = freenect.sync_get_depth()[0]
+
+        self.last_raw_depth = np.copy(raw_depth)
+
+        depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
+
+
+        # raw_rgb = freenect.sync_get_video()[0]
+
+        cvRGBImg = cv2.cvtColor(depth_image, cv2.cv.CV_GRAY2RGB)
+
+        qimg = QtGui.QImage(cvRGBImg.data,cvRGBImg.shape[1], cvRGBImg.shape[0], QtGui.QImage.Format_RGB888)
+        # qimg = QtGui.QImage(raw_rgb.data,raw_rgb.shape[1], raw_rgb.shape[0], QtGui.QImage.Format_RGB888)
+
+        # image = QImage(raw_rgb.tostring(), raw_rgb.width, raw_rgb.height, QImage.Format_RGB888).rgbSwapped()
+        # pixmap = QPixmap.fromImage(image)
+        pixmap = QtGui.QPixmap.fromImage(qimg)
+
+        self.ImageUpdated.emit(pixmap)
+
     def run(self):
         d_time_count = 0
         n_frame_count = 0
@@ -211,7 +237,12 @@ class Controller(QtCore.QThread):
         while True:
             start_time = time.clock()
 
+            self.get_image()
+
+
             pos = self.get_position()
+
+            continue
 
             if pos[0] != -1 and pos[1] != -1 and pos[2] != -1:
 

@@ -160,6 +160,8 @@ class AITab(Tab, plot_tab_class):
         self.hsYTargetPos.valueChanged.connect(self.controller.set_target_y)
         self.hsZTargetPos.valueChanged.connect(self.controller.set_target_z)
 
+        self.controller.ImageUpdated.connect(self._slot_image_updated)
+
         self.controller.PositionUpdated.connect(self._data_received)
         #
         #
@@ -193,6 +195,11 @@ class AITab(Tab, plot_tab_class):
         # self._plot.add_curve('target.y', self.colors[color_selector % len(self.colors)])
         # color_selector += 1
         # self._plot.add_curve('target.z', self.colors[color_selector % len(self.colors)])
+
+    def _slot_image_updated(self, pixmap):
+        myScaledPixmap = pixmap.scaled(self.lblOuptutImage.size(), Qt.KeepAspectRatio)
+        self.lblOuptutImage.setPixmap(myScaledPixmap)
+        pass
 
     def _log_data_signal_wrapper(self, ts, data):
         """Wrapper for signal"""
