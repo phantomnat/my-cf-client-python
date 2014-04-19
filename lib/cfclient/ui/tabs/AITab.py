@@ -161,7 +161,7 @@ class AITab(Tab, plot_tab_class):
         self.controller.set_target_x(self.hsXTargetPos.value())
         self.controller.set_target_y(self.hsYTargetPos.value())
         self.controller.set_target_z(self.hsZTargetPos.value())
-
+        self.controller.DepthUpdated.connect(self.lblDepth.setText)
         self.hsXTargetPos.valueChanged.connect(self.controller.set_target_x)
         self.hsYTargetPos.valueChanged.connect(self.controller.set_target_y)
         self.hsZTargetPos.valueChanged.connect(self.controller.set_target_z)
@@ -202,7 +202,15 @@ class AITab(Tab, plot_tab_class):
         # color_selector += 1
         # self._plot.add_curve('target.z', self.colors[color_selector % len(self.colors)])
 
-    def _slot_image_updated(self, pixmap):
+    def _slot_image_updated(self, cvRGBImg):
+
+        qimg = QtGui.QImage(cvRGBImg.data,cvRGBImg.shape[1], cvRGBImg.shape[0], QtGui.QImage.Format_RGB888)
+        # qimg = QtGui.QImage(raw_rgb.data,raw_rgb.shape[1], raw_rgb.shape[0], QtGui.QImage.Format_RGB888)
+
+        # image = QImage(raw_rgb.tostring(), raw_rgb.width, raw_rgb.height, QImage.Format_RGB888).rgbSwapped()
+        # pixmap = QPixmap.fromImage(image)
+        pixmap = QtGui.QPixmap.fromImage(qimg)
+
         myScaledPixmap = pixmap.scaled(self.lblOuptutImage.size(), Qt.KeepAspectRatio)
         self.lblOuptutImage.setPixmap(myScaledPixmap)
         pass
@@ -226,11 +234,11 @@ class AITab(Tab, plot_tab_class):
         # position = data.split(',')
 
         pos = {}
-        pos['actual.x'] = x
-        pos['target.x'] = 320
-
-        pos['actual.y'] = y
-        pos['target.y'] = 240
+        pos['actual.x'] = 0#x
+        pos['target.x'] = 0#320
+        #
+        pos['actual.y'] = 0 #y
+        pos['target.y'] = 0 #240
 
 
         pos['actual.z'] = z

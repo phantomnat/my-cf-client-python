@@ -53,7 +53,7 @@
            <rect>
             <x>10</x>
             <y>20</y>
-            <width>251</width>
+            <width>317</width>
             <height>761</height>
            </rect>
           </property>
@@ -156,6 +156,20 @@
               <widget class="QSpinBox" name="spinBox_3"/>
              </item>
             </layout>
+           </item>
+           <item>
+            <widget class="QLabel" name="lblDepth">
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_8">
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
            </item>
            <item>
             <spacer name="verticalSpacer">

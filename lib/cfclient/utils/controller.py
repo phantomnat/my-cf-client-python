@@ -21,7 +21,8 @@ class Controller(QtCore.QThread):
     # PIDDataUpdated = QtCore.pyqtSignal(object, float)
     PositionUpdated = QtCore.pyqtSignal(int, int, int)
 
-    ImageUpdated = QtCore.pyqtSignal(QPixmap);
+    ImageUpdated = QtCore.pyqtSignal(object)
+    DepthUpdated = QtCore.pyqtSignal(str)
 
     ThrustUpdated = Caller()
 
@@ -58,11 +59,11 @@ class Controller(QtCore.QThread):
         # self.r_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
         self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
         # self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
-        self.t_pid = PID(P=40, D=400.0, I=40, set_point=0.0)
+        self.t_pid = PID(P=40, D=400.0, I=60, set_point=0.0)
 
         self.set_x = 320
         self.set_y = 240
-        self.set_z = 130
+        self.set_z = 150
 
         self.calc_pitch = 0
         self.calc_roll = 0
@@ -107,7 +108,7 @@ class Controller(QtCore.QThread):
         depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
 
 
-        ret, th_img = cv2.threshold(depth_image, 240, 255, cv2.THRESH_BINARY )
+        ret, th_img = cv2.threshold(depth_image, 248, 255, cv2.THRESH_BINARY )
 
         # cv.CvtColor(difference, grey_image, cv.CV_RGB2GRAY)
         # cv2.dilate(depth_image, )
@@ -198,6 +199,7 @@ class Controller(QtCore.QThread):
 
         if area_count == 1:
             self.PositionUpdated.emit(ret_pos[0], ret_pos[1], ret_pos[2])
+            self.DepthUpdated.emit("depth : {} cm".format(ret_pos[2]))
             return (True, ret_pos)
 
         # self.PositionUpdated.emit(0, 0, 0)
@@ -224,22 +226,18 @@ class Controller(QtCore.QThread):
 
         cvRGBImg = cv2.cvtColor(depth_image, cv2.cv.CV_GRAY2RGB)
 
-        qimg = QtGui.QImage(cvRGBImg.data,cvRGBImg.shape[1], cvRGBImg.shape[0], QtGui.QImage.Format_RGB888)
-        # qimg = QtGui.QImage(raw_rgb.data,raw_rgb.shape[1], raw_rgb.shape[0], QtGui.QImage.Format_RGB888)
 
-        # image = QImage(raw_rgb.tostring(), raw_rgb.width, raw_rgb.height, QImage.Format_RGB888).rgbSwapped()
-        # pixmap = QPixmap.fromImage(image)
-        pixmap = QtGui.QPixmap.fromImage(qimg)
 
-        self.ImageUpdated.emit(pixmap)
+        self.ImageUpdated.emit(cvRGBImg)
 
     def copter_found(self):
         return self._is_copter_found
 
     def get_copter_position(self):
         if self._is_copter_found:
-            return ()
-            pass
+            return self._copter_pos
+        else:
+            return (0,0,0)
 
     def run(self):
         d_time_count = 0
@@ -248,11 +246,10 @@ class Controller(QtCore.QThread):
         while True:
             start_time = time.clock()
 
-            # self.get_image()
+            self.get_image()
 
             found, pos = self.get_position()
 
-            self._is_copter_found = found
 
             if found:
 
@@ -275,10 +272,12 @@ class Controller(QtCore.QThread):
                 else:
                     self.p_pid.tuning(0.025, 1.0, 0.00025)
 
-                if agg_t_tuning:
-                    self.t_pid.tuning(60, 500, 40)
-                else:
-                    self.t_pid.tuning(20, 500, 40)
+                # if agg_t_tuning:
+                #     self.t_pid.tuning(200, 1000, 100)
+                # else:
+                #     self.t_pid.tuning(20, 500, 40)
+
+                self.t_pid.tuning(300, 1, 0.001)
 
 
                 roll = self.r_pid.update(self.set_x - pos[0])
@@ -311,6 +310,11 @@ class Controller(QtCore.QThread):
             self.final_pitch = self.calc_pitch + self.trim_pitch
 
             if self.fly_en:
+                if found:
+                    self._is_copter_found = True
+                else:
+                    self._is_copter_found = False
+
                 self.cf.commander.send_setpoint(self.final_roll, self.final_pitch, 0, self.thrust)
             else:
                 self.cf.commander.send_setpoint(0, 0, 0, self.thrust_pad)
