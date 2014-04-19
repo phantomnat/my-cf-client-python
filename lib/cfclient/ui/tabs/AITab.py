@@ -56,6 +56,7 @@ from cflib.crazyflie.log import Log
 
 
 from cfclient.utils.controller import Controller
+from cfclient.utils.planner import Planner
 
 from cfclient.ui.tab import Tab
 
@@ -110,7 +111,12 @@ class AITab(Tab, plot_tab_class):
         self.controller = Controller(helper.cf)
 
         # self.controller.start(QThread.HighestPriority)
-        self.controller.start()
+        self.controller.start(QThread.HighestPriority)
+
+        self.planner = Planner(self.controller)
+
+        self.planner.start(QThread.HighestPriority)
+
 
         self.last_time = time.clock()
         self._plot_time_count = 0
@@ -204,6 +210,16 @@ class AITab(Tab, plot_tab_class):
     def _log_data_signal_wrapper(self, ts, data):
         """Wrapper for signal"""
         self._log_data_signal.emit(ts, data)
+
+    def closeEvent(self, event):
+        # self.hide()
+        self.planner.exit(0)
+        self.controller.exit(0)
+
+        self.planner.wait()
+        self.controller.wait()
+
+        pass
 
     def _data_received(self, x, y, z):
 

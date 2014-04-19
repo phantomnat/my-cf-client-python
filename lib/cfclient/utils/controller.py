@@ -40,8 +40,11 @@ class Controller(QtCore.QThread):
         self.thrust = 0
 
         self.cf = cf
+        self.thrust_pad = 0
 
         self.fly_en = False
+        self._is_copter_found = False
+        self._copter_pos = (0,0,0)
 
         k1 = 1.1863
         k2 = 2842.5
@@ -191,14 +194,14 @@ class Controller(QtCore.QThread):
         # Depth Filter
         if ret_pos is not None and (ret_pos[2] > self.max_depth_in_cm or ret_pos[2] < self.min_depth_in_cm):
             # self.PositionUpdated.emit(0, 0, 0)
-            return (-1, -1, -1)
+            return (False, (-1, -1, -1))
 
         if area_count == 1:
             self.PositionUpdated.emit(ret_pos[0], ret_pos[1], ret_pos[2])
-            return ret_pos
+            return (True, ret_pos)
 
         # self.PositionUpdated.emit(0, 0, 0)
-        return (-1, -1, -1)
+        return (False, (-1, -1, -1))
 
     def set_target_x(self, x):
         self.set_x = x
@@ -230,6 +233,14 @@ class Controller(QtCore.QThread):
 
         self.ImageUpdated.emit(pixmap)
 
+    def copter_found(self):
+        return self._is_copter_found
+
+    def get_copter_position(self):
+        if self._is_copter_found:
+            return ()
+            pass
+
     def run(self):
         d_time_count = 0
         n_frame_count = 0
@@ -237,14 +248,15 @@ class Controller(QtCore.QThread):
         while True:
             start_time = time.clock()
 
-            self.get_image()
+            # self.get_image()
 
+            found, pos = self.get_position()
 
-            pos = self.get_position()
+            self._is_copter_found = found
 
-            continue
+            if found:
 
-            if pos[0] != -1 and pos[1] != -1 and pos[2] != -1:
+                self._copter_pos = pos
 
                 # logging.info('pos : {}'.format(pos))
                 agg_r_tuning = True if math.fabs(self.set_x - pos[0]) > 10 else False
