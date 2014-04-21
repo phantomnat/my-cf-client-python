@@ -28,6 +28,7 @@
 
 import math
 import time
+import logging
 
 class PID:
 
@@ -191,7 +192,7 @@ class ArduinoPID:
         self.mySetpoint = Setpoint
         self.inAuto = False
 
-        self.SetOutputLimits(0, 100)
+        self.SetOutputLimits(-20000, 20000)
 
         self.SampleTime = 20    # 20 ms
 
@@ -200,37 +201,42 @@ class ArduinoPID:
 
         self.lastTime = (time.clock() * 1000) - self.SampleTime
 
+    def SetTargetPoint(self, target):
+        self.mySetpoint = target
+
     def GetOutput(self):
         return self.myOutput
 
     def Compute(self, input):
         if not self.inAuto: return False
-        now = time.clock() * 1000
-        timeChange = now - self.lastTime
-        self.myInput = input
+        # now = time.clock() * 1000
+        # timeChange = now - self.lastTime
+        # self.myInput = input
 
-        if timeChange > self.SampleTime:
+        # if timeChange > self.SampleTime:
 
-            error = self.mySetpoint - input
-            self.ITerm += (self.ki * error)
+        error = self.mySetpoint - input
+        self.ITerm += (self.ki * error)
 
-            if self.ITerm > self.outMax: self.ITerm = self.outMax
-            elif self.ITerm < self.outMin: self.ITerm = self.outMin
+        if self.ITerm > self.outMax: self.ITerm = self.outMax
+        elif self.ITerm < self.outMin: self.ITerm = self.outMin
 
-            deltaInput = input - self.lastInput
+        deltaInput = input - self.lastInput
 
-            output = self.kp * error + self.ITerm - self.kd * deltaInput
+        output = self.kp * error + self.ITerm - self.kd * deltaInput
 
-            if output > self.outMax: output = self.outMax
-            elif output < self.outMin: output = self.outMin
+        if output > self.outMax: output = self.outMax
+        elif output < self.outMin: output = self.outMin
 
-            self.myOutput = output
-            self.lastInput = input
-            self.lastTime = now
+        self.myOutput = output
+        self.lastInput = input
+        # self.lastTime = now
+        #
+        # logging.info("TH_PID updated {} ,, max {} - {} min.".format(error, self.outMin, self.outMax))
 
-            return True
+        return True
 
-        return False
+        # return False
 
     def SetTuning(self, kp, ki, kd):
         if kp < 0 or ki < 0 or kd < 0: return
@@ -258,10 +264,11 @@ class ArduinoPID:
             self.SampleTime = NewSampleTime
 
     def SetOutputLimits(self, _min, _max):
-        if min > max: return
+        if _min > _max: return
         self.outMax = _max
         self.outMin = _min
 
+        # logging.info("max : {} min : {}".format(_max, _min))
         if self.inAuto:
             if self.myOutput > self.outMax: self.myOutput = self.outMax
             elif self.myOutput < self.outMin: self.myOutput = self.outMin

@@ -53,7 +53,7 @@
            <rect>
             <x>10</x>
             <y>20</y>
-            <width>317</width>
+            <width>322</width>
             <height>761</height>
            </rect>
           </property>
@@ -128,8 +128,8 @@
              </property>
              <property name="minimumSize">
               <size>
-               <width>244</width>
-               <height>183</height>
+               <width>320</width>
+               <height>240</height>
               </size>
              </property>
              <property name="text">
@@ -323,17 +323,40 @@
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
-          <layout class="QVBoxLayout" name="plotLayout">
-           <property name="spacing">
-            <number>6</number>
-           </property>
-           <property name="topMargin">
-            <number>10</number>
-           </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_4">
+           <item>
+            <layout class="QVBoxLayout" name="plotX">
+             <property name="spacing">
+              <number>6</number>
+             </property>
+             <property name="topMargin">
+              <number>10</number>
+             </property>
+            </layout>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="plotY"/>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="plotZ"/>
+           </item>
           </layout>
          </item>
          <item>
-          <layout class="QVBoxLayout" name="plotLayout2"/>
+          <layout class="QHBoxLayout" name="horizontalLayout_5">
+           <item>
+            <layout class="QVBoxLayout" name="plotXOutput"/>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="plotYOutput"/>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="plotZOutput"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="plotLayout"/>
          </item>
         </layout>
        </item>

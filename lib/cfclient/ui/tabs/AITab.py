@@ -87,19 +87,34 @@ class AITab(Tab, plot_tab_class):
         self.tabName = "AI"
         self.menuName = "AI"
 
-        self._plot = PlotWidget(fps=30)
-        self._plot2 = PlotWidget(fps=30)
+        # self._plot = PlotWidget(fps=30)
+        # self._plot2 = PlotWidget(fps=30)
+
+        self._x_plot = PlotWidget(fps=30)
+        self._y_plot = PlotWidget(fps=30)
+        self._z_plot = PlotWidget(fps=30)
+
+        self._roll_plot = PlotWidget(fps=30)
+        self._pitch_plot = PlotWidget(fps=30)
 
         # Check if we could find the PyQtImport. If not, then
         # set this tab as disabled
-        self.enabled = self._plot.can_enable
+        self.enabled = self._x_plot.can_enable
 
         # self.dataSelector.setModel(self._model)
         # self._log_data_signal.connect(self._log_data_received)
         self.tabWidget = tabWidget
         self.helper = helper
 
-        self.plotLayout.addWidget(self._plot)
+        # self.plotLayout.addWidget(self._plot)
+
+        self.plotX.addWidget(self._x_plot)
+        self.plotY.addWidget(self._y_plot)
+        self.plotZ.addWidget(self._z_plot)
+
+        # self.plotXOutput.addWidget(self._roll_plot)
+        # self.plotYOutput.addWidget(self._pitch_plot)
+
         # self.plotLayout2.addWidget(self._plot2)
 
         self._previous_config = None
@@ -161,7 +176,7 @@ class AITab(Tab, plot_tab_class):
         self.controller.set_target_x(self.hsXTargetPos.value())
         self.controller.set_target_y(self.hsYTargetPos.value())
         self.controller.set_target_z(self.hsZTargetPos.value())
-        self.controller.DepthUpdated.connect(self.lblDepth.setText)
+        # self.controller.DepthUpdated.connect(self.lblDepth.setText)
         self.hsXTargetPos.valueChanged.connect(self.controller.set_target_x)
         self.hsYTargetPos.valueChanged.connect(self.controller.set_target_y)
         self.hsZTargetPos.valueChanged.connect(self.controller.set_target_z)
@@ -169,28 +184,59 @@ class AITab(Tab, plot_tab_class):
         self.controller.ImageUpdated.connect(self._slot_image_updated)
 
         self.controller.PositionUpdated.connect(self._data_received)
+        self.controller.OutputUpdated.connect(self._output_controller_updated)
         #
         #
-        self._plot.set_title('Position')
-        color_selector = 0
-        self._plot.add_curve('actual.x', self.colors[color_selector % len(self.colors)])
-        color_selector += 1
-        self._plot.add_curve('actual.y', self.colors[color_selector % len(self.colors)])
-        color_selector += 1
-        self._plot.add_curve('actual.z', self.colors[color_selector % len(self.colors)])
-
+        # self._plot.set_title('Position')
+        # color_selector = 0
+        # self._plot.add_curve('actual.x', self.colors[color_selector % len(self.colors)])
+        # color_selector += 1
+        # self._plot.add_curve('actual.y', self.colors[color_selector % len(self.colors)])
+        # color_selector += 1
+        # self._plot.add_curve('actual.z', self.colors[color_selector % len(self.colors)])
         #
-        color_selector += 1
-        self._plot.add_curve('target.x', self.colors[color_selector % len(self.colors)])
-        color_selector += 1
-        self._plot.add_curve('target.y', self.colors[color_selector % len(self.colors)])
+        # #
+        # color_selector += 1
+        # self._plot.add_curve('target.x', self.colors[color_selector % len(self.colors)])
+        # color_selector += 1
+        # self._plot.add_curve('target.y', self.colors[color_selector % len(self.colors)])
         # color_selector += 1
         # self._plot.add_curve('target.z', self.colors[color_selector % len(self.colors)])
-        #
+
+
+        self._x_plot.set_title("X Position")
+        color_selector = 0
+        self._x_plot.add_curve('actual.x', self.colors[color_selector % len(self.colors)])
+        color_selector += 1
+        self._x_plot.add_curve('target.x', self.colors[color_selector % len(self.colors)])
+        self._x_plot.set_y_range(0, 640)
+
+        self._y_plot.set_title("Y Position")
+        color_selector = 0
+        self._y_plot.add_curve('actual.y', self.colors[color_selector % len(self.colors)])
+        color_selector += 1
+        self._y_plot.add_curve('target.y', self.colors[color_selector % len(self.colors)])
+        self._y_plot.set_y_range(0, 480)
+
+        self._z_plot.set_title("Z Position")
+        color_selector = 0
+        self._z_plot.add_curve('actual.z', self.colors[color_selector % len(self.colors)])
+        color_selector += 1
+        self._z_plot.add_curve('target.z', self.colors[color_selector % len(self.colors)])
+        self._z_plot.set_y_range(100, 200)
+
+
+        color_selector = 0
+        self._roll_plot.add_curve('roll', self.colors[color_selector % len(self.colors)])
+
+        color_selector = 0
+        self._pitch_plot.add_curve('pitch', self.colors[color_selector % len(self.colors)])
+
         # self._plot2.set_title('PID Output')
         # color_selector = 0
         # self._plot2.add_curve('roll', self.colors[color_selector % len(self.colors)])
         # color_selector += 1
+
         # self._plot2.add_curve('pitch', self.colors[color_selector % len(self.colors)])
         #
         # color_selector += 1
@@ -229,21 +275,52 @@ class AITab(Tab, plot_tab_class):
 
         pass
 
-    def _data_received(self, x, y, z):
+    def _output_controller_updated(self, out_roll, out_pitch, out_yaw):
+        # logging.info("output from controller updated")
+        # roll_data = {}
+        # roll_data['roll'] = out_roll
+        #
+        # self._roll_plot.add_data(roll_data, int(self._plot_time_count))
+        #
+        # p_data = {}
+        # p_data['pitch'] = out_pitch
+        #
+        # self._pitch_plot.add_data(p_data, int(self._plot_time_count))
+        pass
+
+    def _data_received(self, x, y, z, tx, ty, tz):
 
         # position = data.split(',')
 
-        pos = {}
-        pos['actual.x'] = 0#x
-        pos['target.x'] = 0#320
+        # pos = {}
+        # pos['actual.x'] = x
+        # pos['target.x'] = tx
+        # #
+        # pos['actual.y'] = y
+        # pos['target.y'] = ty
         #
-        pos['actual.y'] = 0 #y
-        pos['target.y'] = 0 #240
+        #
+        # pos['actual.z'] = z
+        # pos['target.z'] = tz
 
+        pos_x = {}
+        pos_x['actual.x'] = x
+        pos_x['target.x'] = tx
 
-        pos['actual.z'] = z
+        pos_y = {}
+        pos_y['actual.y'] = y
+        pos_y['target.y'] = ty
+
+        pos_z = {}
+        pos_z['actual.z'] = z
+        pos_z['target.z'] = tz
         # pos['target.z'] = 1400
-        #
-        self._plot.add_data(pos, int(self._plot_time_count))
+
+        # Plot Z
+        self._z_plot.add_data(pos_z, int(self._plot_time_count))
+        self._y_plot.add_data(pos_y, int(self._plot_time_count))
+        self._x_plot.add_data(pos_x, int(self._plot_time_count))
+
+        # self._plot.add_data(pos, int(self._plot_time_count))
         self._plot_time_count += ((time.clock() - self.last_time) * 1000)
 

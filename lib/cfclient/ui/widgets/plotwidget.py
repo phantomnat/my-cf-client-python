@@ -152,34 +152,34 @@ class PlotWidget(QtGui.QWidget, plot_widget_class):
         #self.saveToFile.clicked.connect(self.saveToFileSignal)
         self._x_min = 0
         self._x_max = 500
-        self._enable_auto_y.setChecked(True)
-        self._enable_samples_x.setChecked(True)
+        # self._enable_auto_y.setChecked(True)
+        # self._enable_samples_x.setChecked(True)
         self._last_ts = None
         self._dtime = None
 
-        self._x_range = (float(self._range_x_min.text()), float(self._range_x_max.text()))
-        self._nbr_samples = int(self._nbr_of_samples_x.text())
+        # self._x_range = (float(self._range_x_min.text()), float(self._range_x_max.text()))
+        self._nbr_samples = 500 #int(self._nbr_of_samples_x.text())
 
-        self._nbr_of_samples_x.valueChanged.connect(self._nbr_samples_changed)
-        self._range_y_min.valueChanged.connect(self._y_range_changed)
-        self._range_y_max.valueChanged.connect(self._y_range_changed)
-
-        self._y_btn_group = QButtonGroup()
-        self._y_btn_group.addButton(self._enable_auto_y)
-        self._y_btn_group.addButton(self._enable_range_y)
-        self._y_btn_group.setExclusive(True)
-        self._y_btn_group.buttonClicked.connect(self._y_mode_change)
-
-        self._x_btn_group = QButtonGroup()
-        self._x_btn_group.addButton(self._enable_range_x)
-        self._x_btn_group.addButton(self._enable_samples_x)
-        self._x_btn_group.addButton(self._enable_seconds_x)
-        self._x_btn_group.addButton(self._enable_manual_x)
-        self._x_btn_group.setExclusive(True)
-        self._x_btn_group.buttonClicked.connect(self._x_mode_change)
+        # self._nbr_of_samples_x.valueChanged.connect(self._nbr_samples_changed)
+        # self._range_y_min.valueChanged.connect(self._y_range_changed)
+        # self._range_y_max.valueChanged.connect(self._y_range_changed)
+        #
+        # self._y_btn_group = QButtonGroup()
+        # self._y_btn_group.addButton(self._enable_auto_y)
+        # self._y_btn_group.addButton(self._enable_range_y)
+        # self._y_btn_group.setExclusive(True)
+        # self._y_btn_group.buttonClicked.connect(self._y_mode_change)
+        #
+        # self._x_btn_group = QButtonGroup()
+        # self._x_btn_group.addButton(self._enable_range_x)
+        # self._x_btn_group.addButton(self._enable_samples_x)
+        # self._x_btn_group.addButton(self._enable_seconds_x)
+        # self._x_btn_group.addButton(self._enable_manual_x)
+        # self._x_btn_group.setExclusive(True)
+        # self._x_btn_group.buttonClicked.connect(self._x_mode_change)
 
         self._draw_graph = True
-        self._auto_redraw.stateChanged.connect(self._auto_redraw_change)
+        # self._auto_redraw.stateChanged.connect(self._auto_redraw_change)
 
     def _auto_redraw_change(self, state):
         """Callback from the auto redraw checkbox"""
@@ -214,11 +214,16 @@ class PlotWidget(QtGui.QWidget, plot_widget_class):
     def _manual_range_change(self, obj):
         """Callback from pyqtplot when users changes the range of the plot using the mouse"""
         [[x_min,x_max],[y_min,y_max]] = self._plot_widget.getViewBox().viewRange()
-        self._range_y_min.setValue(y_min)
-        self._range_y_max.setValue(y_max)
-        self._range_y_min.setEnabled(True)
-        self._range_y_max.setEnabled(True)
-        self._enable_range_y.setChecked(True)
+        # self._range_y_min.setValue(y_min)
+        # self._range_y_max.setValue(y_max)
+        # self._range_y_min.setEnabled(True)
+        # self._range_y_max.setEnabled(True)
+        # self._enable_range_y.setChecked(True)
+
+    def set_y_range(self, min, max):
+        if(min > max): return
+        _y_range = (min, max)
+        self._plot_widget.getViewBox().setRange(yRange=_y_range, padding=0)
 
     def _y_range_changed(self, val):
         """Callback when user changes Y range manually"""
@@ -262,7 +267,8 @@ class PlotWidget(QtGui.QWidget, plot_widget_class):
         x_min_limit = 0
         x_max_limit = 0
         # We are adding new datasets, calculate what we should show.
-        if self._enable_samples_x.isChecked():
+        # if self._enable_samples_x.isChecked():
+        if True:
             x_min_limit = max(0, self._last_item-self._nbr_samples)
             x_max_limit = max(self._last_item, self._nbr_samples)
 
@@ -272,7 +278,8 @@ class PlotWidget(QtGui.QWidget, plot_widget_class):
                 [self._x_min, self._x_max] = self._items[name].show_data(x_min_limit, x_max_limit)
         if time() > self._ts + self._delay:
             self._ts = time()
-        if self._enable_samples_x.isChecked() and self._dtime and self._last_item < self._nbr_samples:
+        # if self._enable_samples_x.isChecked() and self._dtime and self._last_item < self._nbr_samples:
+        if True and self._dtime and self._last_item < self._nbr_samples:
             self._x_max = self._x_min + self._nbr_samples * self._dtime
 
         self._last_item = self._last_item + 1

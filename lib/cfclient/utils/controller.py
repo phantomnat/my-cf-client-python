@@ -13,14 +13,16 @@ import numpy as np
 import time
 import math
 import logging
-from pid import PID_RP, PID
+from pid import PID_RP, PID, ArduinoPID
+from cv import Scalar
+
 
 class Controller(QtCore.QThread):
 
     PlotUpdated = Caller()
     # PIDDataUpdated = QtCore.pyqtSignal(object, float)
-    PositionUpdated = QtCore.pyqtSignal(int, int, int)
-
+    PositionUpdated = QtCore.pyqtSignal(int, int, int, int, int, int)
+    OutputUpdated   = QtCore.pyqtSignal(float, float, float)
     ImageUpdated = QtCore.pyqtSignal(object)
     DepthUpdated = QtCore.pyqtSignal(str)
 
@@ -60,10 +62,18 @@ class Controller(QtCore.QThread):
         self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
         # self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
         self.t_pid = PID(P=40, D=400.0, I=60, set_point=0.0)
+        self.th_pid = ArduinoPID(Kp=100, Ki=120, Kd=50, Input=0, Output=0, Setpoint=150, ControllerDirection=1)
+        self.th_pid.SetOutputLimits(-20000, 20000)
+        # self.th_pid.SetControllerDirection(1)
+
+        self.new_r_pid = ArduinoPID(Kp=0.00001, Kd=0.1, Ki=0.000025, Setpoint=320, Input=0, Output=0, ControllerDirection=1)
+        self.new_r_pid.SetOutputLimits(-20, 20)
 
         self.set_x = 320
         self.set_y = 240
         self.set_z = 150
+
+        self.new_r_pid.SetTargetPoint(self.set_x)
 
         self.calc_pitch = 0
         self.calc_roll = 0
@@ -73,10 +83,14 @@ class Controller(QtCore.QThread):
         self.trim_roll = 0
         self.trim_pitch = 0
 
+        self.last_thrust = 0
+
     def set_auto_fly(self, en):
         logging.info('auto fly : {}'.format(en))
 
         self.fly_en = en
+        self.th_pid.SetMode(en)
+        self.new_r_pid.SetMode(en)
 
     def update_thrust(self, r, p, y, thrust):
         # if thrust > 50000:
@@ -100,15 +114,18 @@ class Controller(QtCore.QThread):
     def get_position(self):
         global last_depth_data
 
-
         raw_depth = freenect.sync_get_depth()[0]
+
+        self.last_raw_depth = np.copy(raw_depth)
+
+
 
         self.last_raw_depth = np.copy(raw_depth)
 
         depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
 
 
-        ret, th_img = cv2.threshold(depth_image, 248, 255, cv2.THRESH_BINARY )
+        ret, th_img = cv2.threshold(depth_image, 240, 255, cv2.THRESH_BINARY )
 
         # cv.CvtColor(difference, grey_image, cv.CV_RGB2GRAY)
         # cv2.dilate(depth_image, )
@@ -138,6 +155,7 @@ class Controller(QtCore.QThread):
         ret_pos = (-1, -1, -1)
         area_count = 0
 
+
         for h,cnt in enumerate(contours):
 
             area = cv2.contourArea(cnt)
@@ -151,6 +169,7 @@ class Controller(QtCore.QThread):
                 # Draw bounding Box
                 x,y,w,h = cv2.boundingRect(cnt)
                 # cv2.rectangle(color_img,(x,y),(x+w,y+h),(0,255,0),2)
+                # last_rect = (x,y,w,h)
 
                 last_raw_depth_crop = self.last_raw_depth[y: y+h, x: x+w]
                 depth_median_val = np.ma.extras.median(last_raw_depth_crop)
@@ -197,9 +216,15 @@ class Controller(QtCore.QThread):
             # self.PositionUpdated.emit(0, 0, 0)
             return (False, (-1, -1, -1))
 
+        # logging.info("area count : {}".format(area_count))
+
         if area_count == 1:
-            self.PositionUpdated.emit(ret_pos[0], ret_pos[1], ret_pos[2])
-            self.DepthUpdated.emit("depth : {} cm".format(ret_pos[2]))
+
+            # self.DepthUpdated.emit("depth : {} cm".format(ret_pos[2]))
+            # cvRGBImg = cv2.cvtColor(depth_image, cv2.cv.CV_GRAY2RGB)
+            # cv2.rectangle(cvRGBImg,(x,y), (x+w,y+h), Scalar(255,0,0), 1)
+            # self.ImageUpdated.emit(cvRGBImg)
+
             return (True, ret_pos)
 
         # self.PositionUpdated.emit(0, 0, 0)
@@ -213,6 +238,7 @@ class Controller(QtCore.QThread):
 
     def set_target_z(self, z):
         self.set_z = z
+        self.th_pid.SetTargetPoint(z)
 
     def get_image(self):
         raw_depth = freenect.sync_get_depth()[0]
@@ -240,18 +266,18 @@ class Controller(QtCore.QThread):
             return (0,0,0)
 
     def run(self):
+
         d_time_count = 0
         n_frame_count = 0
 
         while True:
+
             start_time = time.clock()
-
-            self.get_image()
-
+            # self.get_image()
             found, pos = self.get_position()
 
-
             if found:
+                self.PositionUpdated.emit(pos[0], pos[1], pos[2], self.set_x, self.set_y, self.set_z)
 
                 self._copter_pos = pos
 
@@ -272,21 +298,36 @@ class Controller(QtCore.QThread):
                 else:
                     self.p_pid.tuning(0.025, 1.0, 0.00025)
 
+                self.r_pid.tuning(0.05, 1.0, 0.001)
+
+                # self.p_pid.tuning(0.05, 1.0, 0.0004)
+
                 # if agg_t_tuning:
                 #     self.t_pid.tuning(200, 1000, 100)
                 # else:
                 #     self.t_pid.tuning(20, 500, 40)
 
-                self.t_pid.tuning(300, 1, 0.001)
+                # self.t_pid.tuning(300, 1, 0.001)
 
 
                 roll = self.r_pid.update(self.set_x - pos[0])
                 pitch = self.p_pid.update(self.set_y - pos[1])
-                thrust = self.t_pid.update(self.set_z - pos[2])
+                # thrust = self.t_pid.update(self.set_z - pos[2])
+
+                # self.new_r_pid.Compute(pos[0])
+                # new_roll = self.new_r_pid.GetOutput()
+
+                if self.th_pid.Compute(pos[2]):
+                    thrust = self.th_pid.GetOutput()
+                    # logging.info("thrust = {}".format(thrust))
+                else:
+                    thrust = self.last_thrust
 
                 roll_sp = -roll
                 pitch_sp = pitch
-                thrust_sp = (thrust) + 42000
+                thrust_sp = (thrust) + 40000
+
+                self.last_thrust = thrust
 
                 if roll_sp > self.LIMIT: roll_sp = self.LIMIT
                 elif roll_sp < -self.LIMIT: roll_sp = -self.LIMIT
@@ -300,6 +341,8 @@ class Controller(QtCore.QThread):
                 self.calc_pitch = pitch_sp
                 self.calc_roll = roll_sp
                 self.thrust = thrust_sp
+
+                self.OutputUpdated.emit(self.calc_roll, self.calc_pitch, self.thrust)
 
                 # logging.info('th pad : {}, th : {}'.format(self.thrust_pad, thrust_sp))
 

@@ -19,6 +19,8 @@ class Planner(QtCore.QThread):
         # if new command
         while True:
 
+            break
+
             if self.controller.copter_found():
 
                 if self.state == 0:
