@@ -16,7 +16,6 @@ import logging
 from pid import PID_RP, PID, ArduinoPID
 from cv import Scalar
 
-
 class Controller(QtCore.QThread):
 
     PlotUpdated = Caller()
@@ -28,11 +27,14 @@ class Controller(QtCore.QThread):
 
     ThrustUpdated = Caller()
 
-
     last_raw_depth = None
     raw_depth_arr = []
     max_raw_depth = 925
     min_raw_depth = 750
+
+    depth_th = 240
+
+    _bg_subtract_state = 0
 
     def __init__(self, cf):
         QtCore.QThread.__init__(self)
@@ -110,22 +112,100 @@ class Controller(QtCore.QThread):
         depth = depth.astype(np.uint8)
         return depth
 
+    def background_subtraction(self):
+        self._bg_subtract_state = 1
+        pass
+
+    def fg_find(self):
+        if self._bg_subtract_state != 4:
+            return
+        self._bg_subtract_state = 3
+        pass
+
+    def change_th(self, value):
+
+        self.depth_th = value
+
+        pass
+
+    def show_bg(self):
+        if self._bg_subtract_state != 4:
+            return
+
+        # depth_image = frame_convert.my_depth_convert(self.raw_bg_data, self.max_raw_depth, self.min_raw_depth)
+        raw_bg_data = np.clip(self.raw_bg_data, 0, 2**10 - 1)
+        raw_bg_data = raw_bg_data.astype(np.uint8)
+        cvRGBImg = cv2.cvtColor(raw_bg_data, cv2.cv.CV_GRAY2RGB)
+        self.ImageUpdated.emit(cvRGBImg)
+
+        # cvRGBImg = cv2.cvtColor(depth_image, cv2.cv.CV_GRAY2RGB)
+
+        # self.ImageUpdated.emit(cvRGBImg)
+        logging.info("bg show")
+
 
     def get_position(self):
         global last_depth_data
 
+        is_getpos_success = False
+        pos_result = (-1, -1, -1)
+
+        if self._bg_subtract_state == 1:
+            # Initial bg subtract
+            logging.info("bg init.")
+            self.raw_bg_data = np.copy(freenect.sync_get_depth()[0]) + 5
+
+            raw_bg_data = np.clip(self.raw_bg_data, 0, 2**10 - 1)
+
+            # 914 is floor
+            # hist, bin_edges = np.histogram(raw_bg_data, bins=np.arange(1023))
+            # for i in range(len(hist)):
+            #     if hist[i] <= 0: continue
+            #     logging.info("{} : {}".format(bin_edges[i], hist[i]))
+
+            raw_bg_data >>= 2
+            raw_bg_data = raw_bg_data.astype(np.uint8)
+            cvRGBImg = cv2.cvtColor(raw_bg_data, cv2.cv.CV_GRAY2RGB)
+
+            self.ImageUpdated.emit(cvRGBImg)
+
+            self._bg_subtract_state = 2
+
+            return (is_getpos_success, pos_result)
+
+        elif self._bg_subtract_state == 4:
+
+            return (is_getpos_success, pos_result)
+
+        elif self._bg_subtract_state == 0:
+            # Not initial bg subtract
+            return (is_getpos_success, pos_result)
+
+        else:
+            # Already to process
+            pass
+
+        # raw_depth = freenect.sync_get_depth()[0] - self.raw_bg_depth
+
         raw_depth = freenect.sync_get_depth()[0]
+        # raw_rgb = freenect.sync_get_video()[0]
 
-        self.last_raw_depth = np.copy(raw_depth)
+        # raw_depth = cv2.morphologyEx(raw_depth, cv2.MORPH_OPEN, kernel)
+        # raw_depth = cv2.medianBlur(raw_depth, 3)
+        # raw_depth = np.fabs(np.subtract(freenect.sync_get_depth()[0], self.raw_bg_depth))
 
+        # raw_depth = cv2.GaussianBlur(raw_depth,(5,5),0)
 
+        raw_fg_depth = np.subtract(self.raw_bg_data, raw_depth)
+        np.clip(raw_fg_depth, 0, 2**10 - 1, out=raw_fg_depth)
+        # raw_fg_depth >>= 2
+        raw_fg_depth = raw_fg_depth.astype(np.uint8)
 
-        self.last_raw_depth = np.copy(raw_depth)
+        ret, th_img = cv2.threshold( raw_fg_depth, 8, 255, cv2.THRESH_BINARY )
 
-        depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
+        # depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
 
-
-        ret, th_img = cv2.threshold(depth_image, 240, 255, cv2.THRESH_BINARY )
+        cvRGBImg = cv2.cvtColor(raw_fg_depth, cv2.cv.CV_GRAY2RGB)
 
         # cv.CvtColor(difference, grey_image, cv.CV_RGB2GRAY)
         # cv2.dilate(depth_image, )
@@ -146,24 +226,20 @@ class Controller(QtCore.QThread):
         # Find Blob
         contours, hierarchy = cv2.findContours(th_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        # color_img = cv2.cvtColor(depth_image, cv2.COLOR_GRAY2BGR)
-
-        # print len(contours)
-
-        # for
-        # cv2.drawContours(color_img,contours,-1,(0,255,0),5)
         ret_pos = (-1, -1, -1)
+
         area_count = 0
 
+        copter_count = 0
 
-        for h,cnt in enumerate(contours):
+        for h, cnt in enumerate(contours):
 
             area = cv2.contourArea(cnt)
 
-            # Check area
-            if area > 100 and area < 5000:
+            # Copter area
+            if area > 200 and area < 1800:
 
-                area_count += 1
+                copter_count += 1
 
                 # moments = cv2.moments(cnt)
                 # Draw bounding Box
@@ -171,10 +247,19 @@ class Controller(QtCore.QThread):
                 # cv2.rectangle(color_img,(x,y),(x+w,y+h),(0,255,0),2)
                 # last_rect = (x,y,w,h)
 
-                last_raw_depth_crop = self.last_raw_depth[y: y+h, x: x+w]
-                depth_median_val = np.ma.extras.median(last_raw_depth_crop)
+                copter_rect = raw_depth[y: y+h, x: x+w]
+                # depth_median_val = np.ma.extras.median(copter_rect)
 
-                self.raw_depth_arr.append(depth_median_val)
+                max_freq_depth = 0
+                hist, bin_edges = np.histogram(copter_rect, bins=np.arange(1023))
+                for i in range(len(hist)):
+                    if hist[i] <= 0: continue
+                    if hist[i] > max_freq_depth:
+                        max_freq_depth = bin_edges[i]
+                    # logging.info("{} : {}".format(bin_edges[i], hist[i]))
+
+                # logging.info("median : {}  max freq : {}".format(depth_median_val, max_freq_depth))
+                self.raw_depth_arr.append(max_freq_depth)
 
                 real_depth = reduce(lambda x, y: x + y, self.raw_depth_arr) / len(self.raw_depth_arr)
 
@@ -184,6 +269,8 @@ class Controller(QtCore.QThread):
 
                 pos = [x+(w/2), y+(h/2)]
                 real_depth_in_cm = int(100 * (k3 * math.tan(real_depth / k2 + k1)))
+
+                cv2.rectangle(cvRGBImg,(x,y), (x+w,y+h), Scalar(255,0,0), 1)
 
                 ret_pos = (pos[0], pos[1], real_depth_in_cm)
 
@@ -199,10 +286,10 @@ class Controller(QtCore.QThread):
 
                 # Draw text on image
                 # font = cv2.FONT_HERSHEY_SIMPLEX
-                # cv2.circle(color_img,(pos[0],pos[1]), 2, (0,0,255), -1)
-                # str_out = 'x : {} , y : {} , depth : {}'.format(pos[0],pos[1],real_depth)
-                # cv2.putText(color_img, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
-                # cv2.putText(color_img, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255), 2, cv2.LINE_AA)
+                cv2.circle(cvRGBImg,(pos[0],pos[1]), 2, (0,0,255), -1)
+                str_out = '{}'.format(area)
+                cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
+                # cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255), 2, cv2.LINE_AA)
 
             # mask = np.zeros(depth_image.shape,np.uint8)
             # cv2.drawContours(mask,[cnt],0,255,-1)
@@ -211,24 +298,22 @@ class Controller(QtCore.QThread):
 
         # print 'area found : {}'.format(area_found)
 
+        self.ImageUpdated.emit(cvRGBImg)
+
         # Depth Filter
         if ret_pos is not None and (ret_pos[2] > self.max_depth_in_cm or ret_pos[2] < self.min_depth_in_cm):
             # self.PositionUpdated.emit(0, 0, 0)
-            return (False, (-1, -1, -1))
+            return (is_getpos_success, pos_result)
 
         # logging.info("area count : {}".format(area_count))
 
-        if area_count == 1:
+        if copter_count == 1:
 
             # self.DepthUpdated.emit("depth : {} cm".format(ret_pos[2]))
-            # cvRGBImg = cv2.cvtColor(depth_image, cv2.cv.CV_GRAY2RGB)
-            # cv2.rectangle(cvRGBImg,(x,y), (x+w,y+h), Scalar(255,0,0), 1)
-            # self.ImageUpdated.emit(cvRGBImg)
-
             return (True, ret_pos)
 
         # self.PositionUpdated.emit(0, 0, 0)
-        return (False, (-1, -1, -1))
+        return (is_getpos_success, pos_result)
 
     def set_target_x(self, x):
         self.set_x = x
@@ -240,21 +325,7 @@ class Controller(QtCore.QThread):
         self.set_z = z
         self.th_pid.SetTargetPoint(z)
 
-    def get_image(self):
-        raw_depth = freenect.sync_get_depth()[0]
 
-        self.last_raw_depth = np.copy(raw_depth)
-
-        depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
-
-
-        # raw_rgb = freenect.sync_get_video()[0]
-
-        cvRGBImg = cv2.cvtColor(depth_image, cv2.cv.CV_GRAY2RGB)
-
-
-
-        self.ImageUpdated.emit(cvRGBImg)
 
     def copter_found(self):
         return self._is_copter_found
@@ -298,7 +369,7 @@ class Controller(QtCore.QThread):
                 else:
                     self.p_pid.tuning(0.025, 1.0, 0.00025)
 
-                self.r_pid.tuning(0.05, 1.0, 0.001)
+                self.r_pid.tuning(0.05, 1.0, 0.0005)
 
                 # self.p_pid.tuning(0.05, 1.0, 0.0004)
 
@@ -363,17 +434,35 @@ class Controller(QtCore.QThread):
                 self.cf.commander.send_setpoint(0, 0, 0, self.thrust_pad)
 
 
-
             end_time = time.clock()
 
             d_time_count += ((end_time - start_time) * 1000)
             n_frame_count += 1
 
-            if n_frame_count > 10:
-                # logging.info('avg time : {}'.format(d_time_count / n_frame_count))
+            if n_frame_count > 90:
+
+                logging.info('avg time : {} ms.'.format(d_time_count / n_frame_count))
                 # logging.info("max depth : {} cm,  min depth : {}".format(self.max_depth_in_cm, self.min_depth_in_cm))
 
                 d_time_count = 0
                 n_frame_count = 0
 
             time.sleep(0.0001)
+
+
+    def get_image(self):
+
+        raw_depth = freenect.sync_get_depth()[0]
+
+        self.last_raw_depth = np.copy(raw_depth)
+
+        depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
+
+
+        # raw_rgb = freenect.sync_get_video()[0]
+
+        cvRGBImg = cv2.cvtColor(depth_image, cv2.cv.CV_GRAY2RGB)
+
+
+
+        self.ImageUpdated.emit(cvRGBImg)

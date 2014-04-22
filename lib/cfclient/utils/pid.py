@@ -209,11 +209,6 @@ class ArduinoPID:
 
     def Compute(self, input):
         if not self.inAuto: return False
-        # now = time.clock() * 1000
-        # timeChange = now - self.lastTime
-        # self.myInput = input
-
-        # if timeChange > self.SampleTime:
 
         error = self.mySetpoint - input
         self.ITerm += (self.ki * error)

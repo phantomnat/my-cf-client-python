@@ -22,7 +22,7 @@
         <widget class="QGroupBox" name="gbPIDController">
          <property name="minimumSize">
           <size>
-           <width>400</width>
+           <width>660</width>
            <height>0</height>
           </size>
          </property>
@@ -35,29 +35,67 @@
          <property name="title">
           <string>PID Controller</string>
          </property>
-         <widget class="QPushButton" name="pushButton">
-          <property name="geometry">
-           <rect>
-            <x>420</x>
-            <y>30</y>
-            <width>75</width>
-            <height>23</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>PushButton</string>
-          </property>
-         </widget>
          <widget class="QWidget" name="verticalLayoutWidget">
           <property name="geometry">
            <rect>
             <x>10</x>
             <y>20</y>
-            <width>322</width>
-            <height>761</height>
+            <width>647</width>
+            <height>926</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_2">
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_7">
+             <item>
+              <widget class="QPushButton" name="btnBgSub">
+               <property name="text">
+                <string>Bg Subtract</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnFgFind">
+               <property name="text">
+                <string>Fg Find</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnShowBg">
+               <property name="text">
+                <string>Show Bg</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QLabel" name="lblOuptutImage">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>640</width>
+               <height>480</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSlider" name="sliderThImage">
+             <property name="maximum">
+              <number>255</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QLabel" name="label_4">
              <property name="text">
@@ -118,22 +156,6 @@
              </property>
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QLabel" name="lblOuptutImage">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>320</width>
-               <height>240</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>TextLabel</string>
              </property>
             </widget>
            </item>

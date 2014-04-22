@@ -181,6 +181,12 @@ class AITab(Tab, plot_tab_class):
         self.hsYTargetPos.valueChanged.connect(self.controller.set_target_y)
         self.hsZTargetPos.valueChanged.connect(self.controller.set_target_z)
 
+        self.btnBgSub.released.connect(self.controller.background_subtraction)
+        self.btnFgFind.released.connect(self.controller.fg_find)
+        self.btnShowBg.released.connect(self.controller.show_bg)
+
+        self.sliderThImage.valueChanged.connect(self.controller.change_th)
+
         self.controller.ImageUpdated.connect(self._slot_image_updated)
 
         self.controller.PositionUpdated.connect(self._data_received)
