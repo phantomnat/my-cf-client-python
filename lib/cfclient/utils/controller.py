@@ -1,6 +1,7 @@
 __author__ = 'messierz'
 
 import time
+import datetime
 import logging
 from cflib.utils.callbacks import Caller
 from PyQt4 import QtCore, QtGui
@@ -32,9 +33,9 @@ class Controller(QtCore.QThread):
     max_raw_depth = 925
     min_raw_depth = 750
 
-    depth_th = 240
+    depth_th = 232
 
-    _bg_subtract_state = 0
+    _bg_subtract_state = 1
 
     def __init__(self, cf):
         QtCore.QThread.__init__(self)
@@ -64,7 +65,7 @@ class Controller(QtCore.QThread):
         self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
         # self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
         self.t_pid = PID(P=40, D=400.0, I=60, set_point=0.0)
-        self.th_pid = ArduinoPID(Kp=100, Ki=120, Kd=50, Input=0, Output=0, Setpoint=150, ControllerDirection=1)
+        self.th_pid = ArduinoPID(Kp=100, Ki=200, Kd=50, Input=0, Output=0, Setpoint=150, ControllerDirection=1)
         self.th_pid.SetOutputLimits(-20000, 20000)
         # self.th_pid.SetControllerDirection(1)
 
@@ -84,6 +85,10 @@ class Controller(QtCore.QThread):
 
         self.trim_roll = 0
         self.trim_pitch = 0
+
+        ts = time.time()
+        st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H.%M.%S')
+        self.file = open('/home/messierz/log/'+ st +'.log','w+')
 
         self.last_thrust = 0
 
@@ -123,7 +128,7 @@ class Controller(QtCore.QThread):
         pass
 
     def change_th(self, value):
-
+        logging.info("depth : {}".format(value))
         self.depth_th = value
 
         pass
@@ -153,15 +158,15 @@ class Controller(QtCore.QThread):
         if self._bg_subtract_state == 1:
             # Initial bg subtract
             logging.info("bg init.")
-            self.raw_bg_data = np.copy(freenect.sync_get_depth()[0]) + 5
+            self.raw_bg_data = np.copy(freenect.sync_get_depth()[0]) + 10
 
             raw_bg_data = np.clip(self.raw_bg_data, 0, 2**10 - 1)
 
             # 914 is floor
-            # hist, bin_edges = np.histogram(raw_bg_data, bins=np.arange(1023))
-            # for i in range(len(hist)):
-            #     if hist[i] <= 0: continue
-            #     logging.info("{} : {}".format(bin_edges[i], hist[i]))
+            hist, bin_edges = np.histogram(raw_bg_data, bins=np.arange(1023))
+            for i in range(len(hist)):
+                if hist[i] <= 0: continue
+                logging.info("{} : {}".format(bin_edges[i], hist[i]))
 
             raw_bg_data >>= 2
             raw_bg_data = raw_bg_data.astype(np.uint8)
@@ -196,16 +201,18 @@ class Controller(QtCore.QThread):
 
         # raw_depth = cv2.GaussianBlur(raw_depth,(5,5),0)
 
+        # Bg Substract
         raw_fg_depth = np.subtract(self.raw_bg_data, raw_depth)
         np.clip(raw_fg_depth, 0, 2**10 - 1, out=raw_fg_depth)
-        # raw_fg_depth >>= 2
+        raw_fg_depth >>= 2
         raw_fg_depth = raw_fg_depth.astype(np.uint8)
+        ret, th_img = cv2.threshold( raw_fg_depth, 5, 255, cv2.THRESH_BINARY )
 
-        ret, th_img = cv2.threshold( raw_fg_depth, 8, 255, cv2.THRESH_BINARY )
-
+        # Normal Threshold
         # depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
+        # ret, th_img = cv2.threshold( depth_image, self.depth_th, 255, cv2.THRESH_BINARY )
 
-        cvRGBImg = cv2.cvtColor(raw_fg_depth, cv2.cv.CV_GRAY2RGB)
+        cvRGBImg = cv2.cvtColor(th_img, cv2.cv.CV_GRAY2RGB)
 
         # cv.CvtColor(difference, grey_image, cv.CV_RGB2GRAY)
         # cv2.dilate(depth_image, )
@@ -298,7 +305,7 @@ class Controller(QtCore.QThread):
 
         # print 'area found : {}'.format(area_found)
 
-        self.ImageUpdated.emit(cvRGBImg)
+        # self.ImageUpdated.emit(cvRGBImg)
 
         # Depth Filter
         if ret_pos is not None and (ret_pos[2] > self.max_depth_in_cm or ret_pos[2] < self.min_depth_in_cm):
@@ -350,6 +357,10 @@ class Controller(QtCore.QThread):
             if found:
                 self.PositionUpdated.emit(pos[0], pos[1], pos[2], self.set_x, self.set_y, self.set_z)
 
+                diff_time = (time.clock() - start_time) * 1000
+
+                self.file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(diff_time, pos[0], pos[1], pos[2], self.set_x, self.set_y, self.set_z))
+
                 self._copter_pos = pos
 
                 # logging.info('pos : {}'.format(pos))
@@ -369,7 +380,9 @@ class Controller(QtCore.QThread):
                 else:
                     self.p_pid.tuning(0.025, 1.0, 0.00025)
 
-                self.r_pid.tuning(0.05, 1.0, 0.0005)
+                self.p_pid.tuning(0.05, 1.0, 0.00025)
+
+                self.r_pid.tuning(0.05, 1.0, 0.00025)
 
                 # self.p_pid.tuning(0.05, 1.0, 0.0004)
 
@@ -449,6 +462,7 @@ class Controller(QtCore.QThread):
 
             time.sleep(0.0001)
 
+        self.file.close()
 
     def get_image(self):
 

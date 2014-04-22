@@ -22,13 +22,13 @@
         <widget class="QGroupBox" name="gbPIDController">
          <property name="minimumSize">
           <size>
-           <width>660</width>
+           <width>340</width>
            <height>0</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>400</width>
+           <width>340</width>
            <height>16777215</height>
           </size>
          </property>
@@ -40,7 +40,7 @@
            <rect>
             <x>10</x>
             <y>20</y>
-            <width>647</width>
+            <width>331</width>
             <height>926</height>
            </rect>
           </property>
@@ -77,8 +77,14 @@
              </property>
              <property name="minimumSize">
               <size>
-               <width>640</width>
-               <height>480</height>
+               <width>320</width>
+               <height>240</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>320</width>
+               <height>240</height>
               </size>
              </property>
              <property name="text">
