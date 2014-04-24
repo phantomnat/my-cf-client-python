@@ -42,7 +42,9 @@ class Controller(QtCore.QThread):
     _MEAN_DATA_CNT = 10
 
     _last_roll = 0
+    _last_agg_roll = True
     _last_pitch = 0
+    _last_agg_pitch = True
     _last_thrust = 0
 
     _mean_arr_z = []
@@ -85,15 +87,11 @@ class Controller(QtCore.QThread):
         self.th_pid = ThrustPID(Kp=100, Ki=200, Kd=50, Input=0, Output=0, Setpoint=150, ControllerDirection=1)
         self.th_pid.SetOutputLimits(-20000, 20000)
 
-        self.new_r_pid = ThrustPID(Kp=0.00001, Kd=0.1, Ki=0.000025, Setpoint=320, Input=0, Output=0, ControllerDirection=1)
-        self.new_r_pid.SetOutputLimits(-20, 20)
+        self.np_pid = ThrustPID(Kp=0.05, Kd=1, Ki=0.0002, Setpoint=0, Input=0, Output=0, ControllerDirection=0)
+        self.np_pid.SetOutputLimits(-20, 20)
 
 
-        self.th_pid.SetMode(True)
-        self.r_pid.set_mode(True)
-        self.p_pid.set_mode(True)
-
-        self.new_r_pid.SetTargetPoint(self.set_x)
+        self.np_pid.SetTargetPoint(self.set_y)
 
         self.calc_pitch = 0
         self.calc_roll = 0
@@ -106,10 +104,11 @@ class Controller(QtCore.QThread):
 
 
         self._is_logging = False
-
+        EXPR_CNT = 3
+        FILENAME = 'Hold_Pos_{0:02d}_NoAir_NoAgg_'.format(EXPR_CNT)
         if self._is_logging:
             ts = time.time()
-            st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H.%M.%S')
+            st = FILENAME + datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H.%M.%S')
             self.file = open('/home/messierz/log/'+ st +'.log','w+')
 
         self.last_thrust = 0
@@ -126,8 +125,12 @@ class Controller(QtCore.QThread):
         logging.info('auto fly : {}'.format(en))
 
         self.fly_en = en
+        # self.th_pid.SetMode(en)
+        self.np_pid.SetMode(en)
         self.th_pid.SetMode(en)
-        self.new_r_pid.SetMode(en)
+        self.r_pid.set_mode(en)
+        self.p_pid.set_mode(en)
+
 
     def update_thrust(self, r, p, y, thrust):
         # if thrust > 50000:
@@ -181,6 +184,8 @@ class Controller(QtCore.QThread):
 
     def get_position(self):
         global last_depth_data
+
+        EMIT_IMAGE = False
 
         is_getpos_success = False
         pos_result = (-1, -1, -1)
@@ -327,12 +332,12 @@ class Controller(QtCore.QThread):
                         max_freq_depth = bin_edges[i]
                     # logging.info("{} : {}".format(bin_edges[i], hist[i]))
 
-                self._mean_arr_x.append(x+(w/2))
-                self._mean_arr_y.append(y+(h/2))
+                # self._mean_arr_x.append(x+(w/2))
+                # self._mean_arr_y.append(y+(h/2))
                 self._mean_arr_z.append(max_freq_depth)
 
-                mean_x = int(np.mean(self._mean_arr_x))
-                mean_y = int(np.mean(self._mean_arr_y))
+                mean_x = x+(w/2)
+                mean_y = y+(h/2) #int(np.mean(self._mean_arr_y))
                 mean_z = np.mean(self._mean_arr_z)
 
                 mean_z = int(self._raw_depth_to_cm(mean_z))
@@ -341,13 +346,13 @@ class Controller(QtCore.QThread):
                 # logging.info('{}'.format(ret_pos))
 
                 # Remove data in array
-                if len(self._mean_arr_x) > self._MEAN_DATA_CNT:
-                    self._mean_arr_x.pop(0)
+                # if len(self._mean_arr_x) > 3:
+                #     self._mean_arr_x.pop(0)
 
-                if len(self._mean_arr_y) > self._MEAN_DATA_CNT:
-                    self._mean_arr_y.pop(0)
+                # if len(self._mean_arr_y) > 3:
+                #     self._mean_arr_y.pop(0)
 
-                if len(self._mean_arr_z) > self._MEAN_DATA_CNT:
+                if len(self._mean_arr_z) > 6:
                     self._mean_arr_z.pop(0)
 
 
@@ -368,15 +373,15 @@ class Controller(QtCore.QThread):
                 # box = cv2.cv.BoxPoints(rect)
                 # box = np.int0(box)
                 # cv2.drawContours(color_img,[box],0,(0,0,255),2)
-                cv2.rectangle(cvRGBImg,(x,y), (x+w,y+h), Scalar(255,0,0), 1)
+                if EMIT_IMAGE:
+                    # Draw bounding rect
+                    cv2.rectangle(cvRGBImg,(x,y), (x+w,y+h), Scalar(255,0,0), 1)
 
-                # Draw text on image
-                # font = cv2.FONT_HERSHEY_SIMPLEX
-
-                cv2.circle(cvRGBImg,(mean_x, mean_y), 2, (0,0,255), -1)
-                str_out = '{}, {}'.format(mean_x, mean_y)
-                cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
-                # cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255), 2, cv2.LINE_AA)
+                    # Draw text on image
+                    cv2.circle(cvRGBImg,(mean_x, mean_y), 2, (0,0,255), -1)
+                    str_out = '{}, {}'.format(mean_x, mean_y)
+                    cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
+                    # cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255), 2, cv2.LINE_AA)
 
             # mask = np.zeros(depth_image.shape,np.uint8)
             # cv2.drawContours(mask,[cnt],0,255,-1)
@@ -384,8 +389,8 @@ class Controller(QtCore.QThread):
             pass
 
         # print 'area found : {}'.format(copter_count)
-
-        self.ImageUpdated.emit(cvRGBImg)
+        if EMIT_IMAGE:
+            self.ImageUpdated.emit(cvRGBImg)
 
         # Depth Filter
         if ret_pos is not None and (ret_pos[2] > self.max_depth_in_cm or ret_pos[2] < self.min_depth_in_cm):
@@ -408,6 +413,8 @@ class Controller(QtCore.QThread):
 
     def set_target_y(self, y):
         self.set_y = y
+        self.np_pid.SetTargetPoint(self.set_y)
+
 
     def set_target_z(self, z):
         self.set_z = z
@@ -446,9 +453,20 @@ class Controller(QtCore.QThread):
                 self._copter_pos = pos
 
                 # logging.info('pos : {}'.format(pos))
+
                 # agg_r_tuning = True if math.fabs(self.set_x - pos[0]) > 10 else False
+
+                # agg_p_tuning = True if math.fabs(self.set_y - pos[1]) > 15 else False
                 #
-                # agg_p_tuning = True if math.fabs(self.set_y - pos[1]) > 10 else False
+                # if agg_p_tuning != self._last_agg_pitch:
+                #     self._last_agg_pitch = agg_p_tuning
+                #
+                #     if agg_p_tuning:
+                #         self.p_pid.tuning(0.1, 1.0, 0.00025)
+                #     else:
+                #         self.p_pid.tuning(0.075, 1.0, 0.00025)
+
+                    # logging.info('agg tuning : {}'.format(agg_p_tuning))
 
                 # agg_t_tuning = True if math.fabs(self.set_z - pos[2]) > 10 else False
 
@@ -458,13 +476,15 @@ class Controller(QtCore.QThread):
                 #     self.r_pid.tuning(0.025, 1.0, 0.00025)
                 #
                 # if agg_p_tuning:
-                #     self.p_pid.tuning(0.05, 1.0, 0.00025)
+                #
                 # else:
                 #     self.p_pid.tuning(0.025, 1.0, 0.00025)
 
-                # self.p_pid.tuning(0.05, 1.0, 0.00025)
-                #
-                # self.r_pid.tuning(0.05, 1.0, 0.00025)
+                self.p_pid.tuning(0.1, 1.0, 0.00025)
+
+                self.p_pid.tuning(0.035, 1.0, 0.00035)
+
+                # self.r_pid.tuning(0.05, 1.0, 0.0003)
 
 
                 # X - Roll calculate
@@ -484,15 +504,21 @@ class Controller(QtCore.QThread):
                 else:
                     thrust = self._last_thrust
 
-
+                if self.np_pid.Compute(pos[1]):
+                    new_pitch_sp = self.np_pid.GetOutput()
+                else:
+                    new_pitch_sp = self._last_pitch
 
                 roll_sp = -roll
                 pitch_sp = pitch
                 thrust_sp = (thrust) + 40000
 
+
+
                 self._last_thrust = thrust
                 self._last_roll = roll
-                self._last_pitch = pitch
+                self._last_pitch = new_pitch_sp
+                # self._last_pitch = pitch
 
                 if roll_sp > self.LIMIT: roll_sp = self.LIMIT
                 elif roll_sp < -self.LIMIT: roll_sp = -self.LIMIT
@@ -507,7 +533,7 @@ class Controller(QtCore.QThread):
                 self.calc_roll = roll_sp
                 self.thrust = thrust_sp
 
-                self.OutputUpdated.emit(self.calc_roll, self.calc_pitch, self.thrust)
+                self.OutputUpdated.emit(self.calc_roll, new_pitch_sp, self.thrust)
 
                 # logging.info('th pad : {}, th : {}'.format(self.thrust_pad, thrust_sp))
 

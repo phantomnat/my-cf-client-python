@@ -290,7 +290,7 @@ class AITab(Tab, plot_tab_class):
         #
         # p_data = {}
         # p_data['pitch'] = out_pitch
-        #
+
         # self._pitch_plot.add_data(p_data, int(self._plot_time_count))
         pass
 
@@ -323,7 +323,7 @@ class AITab(Tab, plot_tab_class):
         # pos['target.z'] = 1400
 
         # Plot Z
-        # self._z_plot.add_data(pos_z, int(self._plot_time_count))
+        self._z_plot.add_data(pos_z, int(self._plot_time_count))
         self._y_plot.add_data(pos_y, int(self._plot_time_count))
         self._x_plot.add_data(pos_x, int(self._plot_time_count))
 
