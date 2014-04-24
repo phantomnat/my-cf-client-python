@@ -30,98 +30,35 @@ import math
 import time
 import logging
 
-class PID:
+# PID Controller from Bitcraze
+class RollPitchPID:
 
-    def __init__(self, P=1.0, I=0.0, D=10.0, Derivator=0, Integrator=0,
-                 Integrator_max=300, Integrator_min=-200, set_point=0.0,
-                 power=1.0):
-
-        self.Kp=P
-        self.Ki=I
-        self.Kd=D
-        self.Derivator=Derivator
-        self.power = power
-        self.Integrator=Integrator
-        self.Integrator_max=Integrator_max
-        self.Integrator_min=Integrator_min
-        self.last_error = 0.0
-        self.last_value = 0.0
-
-        self.set_point=set_point
-        self.error=0.0
-
-    def update(self,current_value):
-        """
-        Calculate PID output value for given reference input and feedback
-        """
-
-        self.error = self.set_point - current_value
-
-        self.P_value = self.Kp * self.error
-        if (self.last_value >= current_value):
-            change = self.error - self.last_error
-        else:
-            change = 0.0
-
-        if self.error > 0.0:
-            self.I_value = self.Integrator * self.Ki
-        else:
-            self.I_value = (self.Integrator * self.Ki)
-
-
-        #self.D_value = self.Kd * ( self.error - self.Derivator)
-        self.D_value = self.Kd * change
-        self.Derivator = self.error
-
-        self.Integrator = self.Integrator + self.error/200.0
-
-        if self.Integrator > self.Integrator_max:
-            self.Integrator = self.Integrator_max
-        elif self.Integrator < self.Integrator_min:
-            self.Integrator = self.Integrator_min
-
-        self.last_error = self.error
-        self.last_value = current_value
-
-        PID = self.P_value + self.I_value + self.D_value
-
-        return PID
-
-    def set_point(self,set_point):
-        """Initilize the setpoint of PID"""
-        self.set_point = set_point
-        self.Integrator=0
-        self.Derivator=0
-
-    def tuning(self, kp, kd, ki):
-        self.Kp = kp
-        self.Ki = ki
-        self.Kd = kd
-
-class PID_RP:
+    isAuto = False
 
     def __init__(self, P=1.0, I=0.0, D=10.0, Derivator=0, Integrator=0,
                  Integrator_max=20000, Integrator_min=-20000, set_point=0.0,
                  power=1.0):
 
-        self.Kp=P
-        self.Ki=I
-        self.Kd=D
-        self.Derivator=Derivator
+        self.Kp = P
+        self.Ki = I
+        self.Kd = D
+        self.Derivator = Derivator
         self.power = power
-        self.Integrator=Integrator
-        self.Integrator_max=Integrator_max
-        self.Integrator_min=Integrator_min
+        self.Integrator = Integrator
+        self.Integrator_max = Integrator_max
+        self.Integrator_min = Integrator_min
         self.last_error = 0.0
         self.last_value = 0.0
 
-        self.set_point=set_point
-        self.error=0.0
+        self.set_point = set_point
+        self.error = 0.0
+        self.output = 0.0
 
-    def update(self,current_value):
+    def update(self, current_value):
         """
         Calculate PID output value for given reference input and feedback
         """
+        if not self.isAuto: return
 
         self.error = self.set_point - current_value
 
@@ -146,26 +83,37 @@ class PID_RP:
 
         PID = self.P_value + self.I_value + self.D_value
 
-        return PID
+        self.output = PID
+        return True
 
-    def set_point(self,set_point):
+    def get_output(self):
+        return self.output
+
+    def set_target(self,set_point):
         """
         Initilize the setpoint of PID
         """
         self.set_point = set_point
-        self.Integrator=0
-        self.Derivator=0
+        self.Integrator = 0
+        self.Derivator = 0
 
     def reset(self):
-        self.Integrator=0
-        self.Derivator=0
+        self.Integrator = 0
+        self.Derivator = 0
 
     def tuning(self, kp, kd, ki):
         self.Kp = kp
         self.Ki = ki
         self.Kd = kd
 
-class ArduinoPID:
+    def set_mode(self, mode = True):
+        if mode == ~self.isAuto:
+            pass
+        self.isAuto = mode
+
+
+# PID Controller from Arduino
+class ThrustPID:
 
     myInput = 0
     myOutput = 0

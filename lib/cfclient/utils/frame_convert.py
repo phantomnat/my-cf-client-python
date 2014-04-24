@@ -4,7 +4,7 @@ import numpy as np
 def my_depth_convert(depth, max_depth_val = 925, min_depth_val = 750):
 
     np.clip(depth, min_depth_val, max_depth_val, depth)
-    n = 255.0 / float(max_depth_val - min_depth_val)
+    n = 255.0 / float(max_depth_val - min_depth_val + 1)
     depth = (depth - min_depth_val) * n
     depth = depth.astype(np.uint8)
     return depth

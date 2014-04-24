@@ -77,7 +77,7 @@
              </property>
              <property name="minimumSize">
               <size>
-               <width>320</width>
+               <width>0</width>
                <height>240</height>
               </size>
              </property>
@@ -89,6 +89,16 @@
              </property>
              <property name="text">
               <string>TextLabel</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_9">
+             <property name="text">
+              <string>Image Threshold</string>
              </property>
             </widget>
            </item>

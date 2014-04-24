@@ -14,7 +14,7 @@ import numpy as np
 import time
 import math
 import logging
-from pid import PID_RP, PID, ArduinoPID
+from pid import RollPitchPID, ThrustPID
 from cv import Scalar
 
 class Controller(QtCore.QThread):
@@ -35,7 +35,23 @@ class Controller(QtCore.QThread):
 
     depth_th = 232
 
-    _bg_subtract_state = 1
+    _bg_subtract_state = 2
+
+
+
+    _MEAN_DATA_CNT = 10
+
+    _last_roll = 0
+    _last_pitch = 0
+    _last_thrust = 0
+
+    _mean_arr_z = []
+    _mean_arr_y = []
+    _mean_arr_x = []
+
+    _target_x = 0
+    _target_y = 0
+    _target_z = 0
 
     def __init__(self, cf):
         QtCore.QThread.__init__(self)
@@ -52,29 +68,30 @@ class Controller(QtCore.QThread):
         self._is_copter_found = False
         self._copter_pos = (0,0,0)
 
-        k1 = 1.1863
-        k2 = 2842.5
-        k3 = 0.1236
-
-        # Max depth : 208 cm, Min depth : 101 cm
-        self.min_depth_in_cm = int(100 * (k3 * math.tan(self.min_raw_depth / k2 + k1)))
-        self.max_depth_in_cm = int(100 * (k3 * math.tan(self.max_raw_depth / k2 + k1)))
-
-        self.r_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
-        # self.r_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
-        self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
-        # self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
-        self.t_pid = PID(P=40, D=400.0, I=60, set_point=0.0)
-        self.th_pid = ArduinoPID(Kp=100, Ki=200, Kd=50, Input=0, Output=0, Setpoint=150, ControllerDirection=1)
-        self.th_pid.SetOutputLimits(-20000, 20000)
-        # self.th_pid.SetControllerDirection(1)
-
-        self.new_r_pid = ArduinoPID(Kp=0.00001, Kd=0.1, Ki=0.000025, Setpoint=320, Input=0, Output=0, ControllerDirection=1)
-        self.new_r_pid.SetOutputLimits(-20, 20)
-
         self.set_x = 320
         self.set_y = 240
         self.set_z = 150
+
+        # Max depth : 208 cm, Min depth : 101 cm
+        self.min_depth_in_cm = self._raw_depth_to_cm(self.min_raw_depth)
+        self.max_depth_in_cm = self._raw_depth_to_cm(self.max_raw_depth)
+        #int(100 * (k3 * math.tan(self.max_raw_depth / k2 + k1)))
+
+        self.r_pid = RollPitchPID(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+        # self.r_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+        self.p_pid = RollPitchPID(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+        # self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+
+        self.th_pid = ThrustPID(Kp=100, Ki=200, Kd=50, Input=0, Output=0, Setpoint=150, ControllerDirection=1)
+        self.th_pid.SetOutputLimits(-20000, 20000)
+
+        self.new_r_pid = ThrustPID(Kp=0.00001, Kd=0.1, Ki=0.000025, Setpoint=320, Input=0, Output=0, ControllerDirection=1)
+        self.new_r_pid.SetOutputLimits(-20, 20)
+
+
+        self.th_pid.SetMode(True)
+        self.r_pid.set_mode(True)
+        self.p_pid.set_mode(True)
 
         self.new_r_pid.SetTargetPoint(self.set_x)
 
@@ -86,11 +103,24 @@ class Controller(QtCore.QThread):
         self.trim_roll = 0
         self.trim_pitch = 0
 
-        ts = time.time()
-        st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H.%M.%S')
-        self.file = open('/home/messierz/log/'+ st +'.log','w+')
+
+
+        self._is_logging = False
+
+        if self._is_logging:
+            ts = time.time()
+            st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H.%M.%S')
+            self.file = open('/home/messierz/log/'+ st +'.log','w+')
 
         self.last_thrust = 0
+
+    def _raw_depth_to_cm(self, raw_depth):
+
+        k1 = 1.1863
+        k2 = 2842.5
+        k3 = 0.1236
+
+        return int(100 * (k3 * math.tan(raw_depth / k2 + k1)))
 
     def set_auto_fly(self, en):
         logging.info('auto fly : {}'.format(en))
@@ -160,7 +190,12 @@ class Controller(QtCore.QThread):
             logging.info("bg init.")
             self.raw_bg_data = np.copy(freenect.sync_get_depth()[0]) + 10
 
+            filter = self.raw_bg_data > 923
+            self.raw_bg_data[filter] = 0
+
             raw_bg_data = np.clip(self.raw_bg_data, 0, 2**10 - 1)
+
+            # depth_image = frame_convert.my_depth_convert(raw_bg_data, 940, 920)
 
             # 914 is floor
             hist, bin_edges = np.histogram(raw_bg_data, bins=np.arange(1023))
@@ -172,7 +207,7 @@ class Controller(QtCore.QThread):
             raw_bg_data = raw_bg_data.astype(np.uint8)
             cvRGBImg = cv2.cvtColor(raw_bg_data, cv2.cv.CV_GRAY2RGB)
 
-            self.ImageUpdated.emit(cvRGBImg)
+            # self.ImageUpdated.emit(cvRGBImg)
 
             self._bg_subtract_state = 2
 
@@ -202,11 +237,40 @@ class Controller(QtCore.QThread):
         # raw_depth = cv2.GaussianBlur(raw_depth,(5,5),0)
 
         # Bg Substract
-        raw_fg_depth = np.subtract(self.raw_bg_data, raw_depth)
-        np.clip(raw_fg_depth, 0, 2**10 - 1, out=raw_fg_depth)
-        raw_fg_depth >>= 2
-        raw_fg_depth = raw_fg_depth.astype(np.uint8)
-        ret, th_img = cv2.threshold( raw_fg_depth, 5, 255, cv2.THRESH_BINARY )
+        # filter = raw_depth > 920
+
+        max_raw_depth = 916
+
+        img_depth = np.copy(raw_depth)
+
+        fg_filter = img_depth <= max_raw_depth
+        img_depth[img_depth > max_raw_depth] = 0
+        img_depth[img_depth < 750] = 0
+
+        # hist, bin_edges = np.histogram(raw_depth, bins=np.arange(1023))
+        # for i in range(len(hist)):
+        #     if hist[i] <= 0: continue
+        #     logging.info("{} : {}".format(bin_edges[i], hist[i]))
+
+        img_depth[fg_filter] = (max_raw_depth - img_depth[fg_filter]) * 1.5
+        img_depth = img_depth.astype(np.uint8)
+
+        ret, th_img = cv2.threshold( img_depth, 1, 255, cv2.THRESH_BINARY_INV )
+
+        # raw_fg_depth = raw_depth  # np.subtract(self.raw_bg_data, raw_depth)
+        # np.clip(raw_depth, 0, 920, out=raw_depth)
+        # n = 255.0 / float(920)
+        # raw_depth = (raw_depth) * n
+
+        # raw_depth >>= 2
+        # raw_fg_depth = raw_depth.astype(np.uint8)
+        # ret, th_img = cv2.threshold( raw_fg_depth, 5, 255, cv2.THRESH_BINARY )
+
+
+
+
+        # depth_image = frame_convert.my_depth_convert(raw_depth, 940, 920)
+
 
         # Normal Threshold
         # depth_image = frame_convert.my_depth_convert(raw_depth, self.max_raw_depth, self.min_raw_depth)
@@ -250,12 +314,10 @@ class Controller(QtCore.QThread):
 
                 # moments = cv2.moments(cnt)
                 # Draw bounding Box
+                # Get bounding box
                 x,y,w,h = cv2.boundingRect(cnt)
-                # cv2.rectangle(color_img,(x,y),(x+w,y+h),(0,255,0),2)
-                # last_rect = (x,y,w,h)
 
                 copter_rect = raw_depth[y: y+h, x: x+w]
-                # depth_median_val = np.ma.extras.median(copter_rect)
 
                 max_freq_depth = 0
                 hist, bin_edges = np.histogram(copter_rect, bins=np.arange(1023))
@@ -265,36 +327,54 @@ class Controller(QtCore.QThread):
                         max_freq_depth = bin_edges[i]
                     # logging.info("{} : {}".format(bin_edges[i], hist[i]))
 
+                self._mean_arr_x.append(x+(w/2))
+                self._mean_arr_y.append(y+(h/2))
+                self._mean_arr_z.append(max_freq_depth)
+
+                mean_x = int(np.mean(self._mean_arr_x))
+                mean_y = int(np.mean(self._mean_arr_y))
+                mean_z = np.mean(self._mean_arr_z)
+
+                mean_z = int(self._raw_depth_to_cm(mean_z))
+
+                ret_pos = (mean_x, mean_y, mean_z)
+                # logging.info('{}'.format(ret_pos))
+
+                # Remove data in array
+                if len(self._mean_arr_x) > self._MEAN_DATA_CNT:
+                    self._mean_arr_x.pop(0)
+
+                if len(self._mean_arr_y) > self._MEAN_DATA_CNT:
+                    self._mean_arr_y.pop(0)
+
+                if len(self._mean_arr_z) > self._MEAN_DATA_CNT:
+                    self._mean_arr_z.pop(0)
+
+
                 # logging.info("median : {}  max freq : {}".format(depth_median_val, max_freq_depth))
-                self.raw_depth_arr.append(max_freq_depth)
+                # self.raw_depth_arr.append(max_freq_depth)
 
-                real_depth = reduce(lambda x, y: x + y, self.raw_depth_arr) / len(self.raw_depth_arr)
+                # real_depth = reduce(lambda x, y: x + y, self.raw_depth_arr) / len(self.raw_depth_arr)
 
-                k1 = 1.1863
-                k2 = 2842.5
-                k3 = 0.1236
-
-                pos = [x+(w/2), y+(h/2)]
-                real_depth_in_cm = int(100 * (k3 * math.tan(real_depth / k2 + k1)))
-
-                cv2.rectangle(cvRGBImg,(x,y), (x+w,y+h), Scalar(255,0,0), 1)
-
-                ret_pos = (pos[0], pos[1], real_depth_in_cm)
-
-                # Remove store data
-                if len(self.raw_depth_arr) > 10:
-                    self.raw_depth_arr.pop(0)
+                # k1 = 1.1863
+                # k2 = 2842.5
+                # k3 = 0.1236
+                #
+                # pos = [x+(w/2), y+(h/2)]
+                # real_depth_in_cm = int(100 * (k3 * math.tan(real_depth / k2 + k1)))
 
                 # draw rotate bounding box
                 # rect = cv2.minAreaRect(cnt)
                 # box = cv2.cv.BoxPoints(rect)
                 # box = np.int0(box)
                 # cv2.drawContours(color_img,[box],0,(0,0,255),2)
+                cv2.rectangle(cvRGBImg,(x,y), (x+w,y+h), Scalar(255,0,0), 1)
 
                 # Draw text on image
                 # font = cv2.FONT_HERSHEY_SIMPLEX
-                cv2.circle(cvRGBImg,(pos[0],pos[1]), 2, (0,0,255), -1)
-                str_out = '{}'.format(area)
+
+                cv2.circle(cvRGBImg,(mean_x, mean_y), 2, (0,0,255), -1)
+                str_out = '{}, {}'.format(mean_x, mean_y)
                 cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
                 # cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255), 2, cv2.LINE_AA)
 
@@ -303,9 +383,9 @@ class Controller(QtCore.QThread):
             # mean = cv2.mean(im,mask = mask)
             pass
 
-        # print 'area found : {}'.format(area_found)
+        # print 'area found : {}'.format(copter_count)
 
-        # self.ImageUpdated.emit(cvRGBImg)
+        self.ImageUpdated.emit(cvRGBImg)
 
         # Depth Filter
         if ret_pos is not None and (ret_pos[2] > self.max_depth_in_cm or ret_pos[2] < self.min_depth_in_cm):
@@ -315,6 +395,7 @@ class Controller(QtCore.QThread):
         # logging.info("area count : {}".format(area_count))
 
         if copter_count == 1:
+            # logging.info('{}'.format(ret_pos))
 
             # self.DepthUpdated.emit("depth : {} cm".format(ret_pos[2]))
             return (True, ret_pos)
@@ -359,59 +440,59 @@ class Controller(QtCore.QThread):
 
                 diff_time = (time.clock() - start_time) * 1000
 
-                self.file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(diff_time, pos[0], pos[1], pos[2], self.set_x, self.set_y, self.set_z))
+                if self._is_logging:
+                    self.file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(diff_time, pos[0], pos[1], pos[2], self.set_x, self.set_y, self.set_z))
 
                 self._copter_pos = pos
 
                 # logging.info('pos : {}'.format(pos))
-                agg_r_tuning = True if math.fabs(self.set_x - pos[0]) > 10 else False
+                # agg_r_tuning = True if math.fabs(self.set_x - pos[0]) > 10 else False
+                #
+                # agg_p_tuning = True if math.fabs(self.set_y - pos[1]) > 10 else False
 
-                agg_p_tuning = True if math.fabs(self.set_y - pos[1]) > 10 else False
+                # agg_t_tuning = True if math.fabs(self.set_z - pos[2]) > 10 else False
 
-                agg_t_tuning = True if math.fabs(self.set_z - pos[2]) > 10 else False
-
-                if agg_r_tuning:
-                    self.r_pid.tuning(0.05, 1.0, 0.00025)
-                else:
-                    self.r_pid.tuning(0.025, 1.0, 0.00025)
-
-                if agg_p_tuning:
-                    self.p_pid.tuning(0.05, 1.0, 0.00025)
-                else:
-                    self.p_pid.tuning(0.025, 1.0, 0.00025)
-
-                self.p_pid.tuning(0.05, 1.0, 0.00025)
-
-                self.r_pid.tuning(0.05, 1.0, 0.00025)
-
-                # self.p_pid.tuning(0.05, 1.0, 0.0004)
-
-                # if agg_t_tuning:
-                #     self.t_pid.tuning(200, 1000, 100)
+                # if agg_r_tuning:
+                #     self.r_pid.tuning(0.05, 1.0, 0.00025)
                 # else:
-                #     self.t_pid.tuning(20, 500, 40)
+                #     self.r_pid.tuning(0.025, 1.0, 0.00025)
+                #
+                # if agg_p_tuning:
+                #     self.p_pid.tuning(0.05, 1.0, 0.00025)
+                # else:
+                #     self.p_pid.tuning(0.025, 1.0, 0.00025)
 
-                # self.t_pid.tuning(300, 1, 0.001)
+                # self.p_pid.tuning(0.05, 1.0, 0.00025)
+                #
+                # self.r_pid.tuning(0.05, 1.0, 0.00025)
 
 
-                roll = self.r_pid.update(self.set_x - pos[0])
-                pitch = self.p_pid.update(self.set_y - pos[1])
-                # thrust = self.t_pid.update(self.set_z - pos[2])
-
-                # self.new_r_pid.Compute(pos[0])
-                # new_roll = self.new_r_pid.GetOutput()
+                # X - Roll calculate
+                if self.r_pid.update(self.set_x - pos[0]):
+                    roll = self.r_pid.get_output()
+                else:
+                    roll = self._last_roll
+                # Y - Pitch calculate
+                if self.p_pid.update(self.set_y - pos[1]):
+                    pitch = self.p_pid.get_output()
+                else:
+                    pitch = self._last_pitch
 
                 if self.th_pid.Compute(pos[2]):
                     thrust = self.th_pid.GetOutput()
                     # logging.info("thrust = {}".format(thrust))
                 else:
-                    thrust = self.last_thrust
+                    thrust = self._last_thrust
+
+
 
                 roll_sp = -roll
                 pitch_sp = pitch
                 thrust_sp = (thrust) + 40000
 
-                self.last_thrust = thrust
+                self._last_thrust = thrust
+                self._last_roll = roll
+                self._last_pitch = pitch
 
                 if roll_sp > self.LIMIT: roll_sp = self.LIMIT
                 elif roll_sp < -self.LIMIT: roll_sp = -self.LIMIT
@@ -419,8 +500,8 @@ class Controller(QtCore.QThread):
                 if pitch_sp > self.LIMIT: pitch_sp = self.LIMIT
                 elif pitch_sp < -self.LIMIT: pitch_sp = -self.LIMIT
 
-                if thrust_sp > 63000: thrust_sp = 63000
-                elif thrust_sp < 0: thrust_sp = 0
+                # if thrust_sp > 63000: thrust_sp = 63000
+                # elif thrust_sp < 0: thrust_sp = 0
 
                 self.calc_pitch = pitch_sp
                 self.calc_roll = roll_sp
@@ -454,7 +535,7 @@ class Controller(QtCore.QThread):
 
             if n_frame_count > 90:
 
-                logging.info('avg time : {} ms.'.format(d_time_count / n_frame_count))
+                # logging.info('avg time : {} ms.'.format(d_time_count / n_frame_count))
                 # logging.info("max depth : {} cm,  min depth : {}".format(self.max_depth_in_cm, self.min_depth_in_cm))
 
                 d_time_count = 0
@@ -462,7 +543,8 @@ class Controller(QtCore.QThread):
 
             time.sleep(0.0001)
 
-        self.file.close()
+        if self._is_logging:
+            self.file.close()
 
     def get_image(self):
 
