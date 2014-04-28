@@ -112,6 +112,96 @@ class RollPitchPID:
         self.isAuto = mode
 
 
+
+class PitchPID:
+
+    isAuto = False
+
+    def __init__(self, P=1.0, I=0.0, D=10.0, Derivator=0, Integrator=0,
+                 Integrator_max=10000, Integrator_min=-10000, set_point=0.0,
+                 power=1.0):
+
+        self.Kp = P
+        self.Ki = I
+        self.Kd = D
+        self.Derivator = Derivator
+        self.power = power
+        self.Integrator = Integrator
+        self.Integrator_max = Integrator_max
+        self.Integrator_min = Integrator_min
+        self.last_error = 0.0
+        self.last_value = 0.0
+
+        self.set_point = set_point
+        self.error = 0.0
+        self.output = 0.0
+
+    def set_integrator_limit(self, min, max):
+        if min > max: return
+        self.Integrator_max = max
+        self.Integrator_min = min
+        self.reset()
+
+    def update(self, current_value):
+        """
+        Calculate PID output value for given reference input and feedback
+        """
+        if not self.isAuto: return
+
+        self.error = self.set_point - current_value
+
+        self.P_value = self.Kp * self.error
+        change = self.error - self.last_error
+
+        self.I_value = self.Integrator * self.Ki
+
+        #self.D_value = self.Kd * ( self.error - self.Derivator)
+        self.D_value = self.Kd * change
+        self.Derivator = self.error
+
+        self.Integrator = self.Integrator + self.error
+
+        if self.Integrator > self.Integrator_max:
+            self.Integrator = self.Integrator_max
+        elif self.Integrator < self.Integrator_min:
+            self.Integrator = self.Integrator_min
+
+        self.last_error = self.error
+        self.last_value = current_value
+
+        PID = self.P_value + self.I_value + self.D_value
+
+        self.output = PID
+        return True
+
+    def get_output(self):
+        return self.output
+
+    def set_target(self,set_point):
+        """
+        Initilize the setpoint of PID
+        """
+        self.set_point = set_point
+        self.Integrator = 0
+        self.Derivator = 0
+
+    def reset(self):
+        self.Integrator = 0
+        self.Derivator = 0
+
+    def tuning(self, kp, kd, ki):
+        self.Kp = kp
+        self.Ki = ki
+        self.Kd = kd
+
+    def set_mode(self, mode = True):
+        if mode == ~self.isAuto:
+            self.reset()
+            pass
+        self.isAuto = mode
+
+
+
 # PID Controller from Arduino
 class ThrustPID:
 
@@ -238,3 +328,4 @@ class ThrustPID:
             self.ki = 1 - self.ki
             self.kd = 1 - self.kd
         self.controllerDirection = direction
+

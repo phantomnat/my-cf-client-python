@@ -40,7 +40,7 @@
            <rect>
             <x>10</x>
             <y>20</y>
-            <width>331</width>
+            <width>332</width>
             <height>926</height>
            </rect>
           </property>
@@ -55,9 +55,9 @@
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="btnFgFind">
+              <widget class="QPushButton" name="btnObsFind">
                <property name="text">
-                <string>Fg Find</string>
+                <string>Obs Find</string>
                </property>
               </widget>
              </item>
@@ -71,46 +71,40 @@
             </layout>
            </item>
            <item>
-            <widget class="QLabel" name="lblOuptutImage">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>240</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>320</width>
-               <height>240</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>TextLabel</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
+            <layout class="QHBoxLayout" name="hLayoutControl">
+             <item>
+              <widget class="QPushButton" name="btnTakeOff">
+               <property name="text">
+                <string>TAKE OFF !!</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnLanding">
+               <property name="text">
+                <string>LANDING !!</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
-            <widget class="QLabel" name="label_9">
-             <property name="text">
-              <string>Image Threshold</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QSlider" name="sliderThImage">
-             <property name="maximum">
-              <number>255</number>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
+            <layout class="QHBoxLayout" name="hLayoutTask">
+             <item>
+              <widget class="QPushButton" name="btnA2B">
+               <property name="text">
+                <string>A -&gt; B</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_2">
+               <property name="text">
+                <string>PushButton</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <widget class="QLabel" name="label_4">
@@ -361,6 +355,31 @@
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
+          <widget class="QLabel" name="lblOuptutImage">
+           <property name="enabled">
+            <bool>true</bool>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>640</width>
+             <height>480</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>640</width>
+             <height>480</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>TextLabel</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
           <layout class="QHBoxLayout" name="horizontalLayout_4">
            <item>
             <layout class="QVBoxLayout" name="plotX">
@@ -392,9 +411,6 @@
             <layout class="QVBoxLayout" name="plotZOutput"/>
            </item>
           </layout>
-         </item>
-         <item>
-          <layout class="QVBoxLayout" name="plotLayout"/>
          </item>
         </layout>
        </item>

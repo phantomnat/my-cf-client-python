@@ -111,7 +111,7 @@ class AITab(Tab, plot_tab_class):
         self.plotX.addWidget(self._x_plot)
         self.plotY.addWidget(self._y_plot)
         self.plotZ.addWidget(self._z_plot)
-
+        #
         # self.plotXOutput.addWidget(self._roll_plot)
         # self.plotYOutput.addWidget(self._pitch_plot)
 
@@ -140,7 +140,7 @@ class AITab(Tab, plot_tab_class):
 
 
         # self.controller = Controller(self, helper.cf)
-        helper.inputDeviceReader.input_updated.add_callback(self.controller.update_thrust)
+        # helper.inputDeviceReader.input_updated.add_callback(self.controller.update_thrust)
 
         helper.inputDeviceReader.autofly_updated.add_callback(self.controller.set_auto_fly)
 
@@ -182,10 +182,14 @@ class AITab(Tab, plot_tab_class):
         self.hsZTargetPos.valueChanged.connect(self.controller.set_target_z)
 
         self.btnBgSub.released.connect(self.controller.background_subtraction)
-        self.btnFgFind.released.connect(self.controller.fg_find)
+        self.btnObsFind.released.connect(self.controller.find_obstacle)
         self.btnShowBg.released.connect(self.controller.show_bg)
 
-        self.sliderThImage.valueChanged.connect(self.controller.change_th)
+        self.btnTakeOff.released.connect(self.planner.take_off)
+        self.btnLanding.released.connect(self.planner.landing)
+        self.btnA2B.released.connect(self.planner.task_a2b)
+
+        # self.sliderThImage.valueChanged.connect(self.controller.change_th)
 
         self.controller.ImageUpdated.connect(self._slot_image_updated)
 
@@ -265,7 +269,6 @@ class AITab(Tab, plot_tab_class):
 
         myScaledPixmap = pixmap.scaled(self.lblOuptutImage.size(), Qt.KeepAspectRatio)
         self.lblOuptutImage.setPixmap(myScaledPixmap)
-        pass
 
     def _log_data_signal_wrapper(self, ts, data):
         """Wrapper for signal"""
@@ -279,35 +282,18 @@ class AITab(Tab, plot_tab_class):
         self.planner.wait()
         self.controller.wait()
 
-        pass
-
     def _output_controller_updated(self, out_roll, out_pitch, out_yaw):
         # logging.info("output from controller updated")
         # roll_data = {}
         # roll_data['roll'] = out_roll
-        #
         # self._roll_plot.add_data(roll_data, int(self._plot_time_count))
         #
         # p_data = {}
         # p_data['pitch'] = out_pitch
-
         # self._pitch_plot.add_data(p_data, int(self._plot_time_count))
         pass
 
     def _data_received(self, x, y, z, tx, ty, tz):
-
-        # position = data.split(',')
-
-        # pos = {}
-        # pos['actual.x'] = x
-        # pos['target.x'] = tx
-        # #
-        # pos['actual.y'] = y
-        # pos['target.y'] = ty
-        #
-        #
-        # pos['actual.z'] = z
-        # pos['target.z'] = tz
 
         pos_x = {}
         pos_x['actual.x'] = x
@@ -320,13 +306,11 @@ class AITab(Tab, plot_tab_class):
         pos_z = {}
         pos_z['actual.z'] = z
         pos_z['target.z'] = tz
-        # pos['target.z'] = 1400
 
         # Plot Z
         self._z_plot.add_data(pos_z, int(self._plot_time_count))
         self._y_plot.add_data(pos_y, int(self._plot_time_count))
         self._x_plot.add_data(pos_x, int(self._plot_time_count))
 
-        # self._plot.add_data(pos, int(self._plot_time_count))
         self._plot_time_count += ((time.clock() - self.last_time) * 1000)
 
