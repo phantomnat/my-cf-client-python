@@ -188,6 +188,7 @@ class AITab(Tab, plot_tab_class):
         self.btnTakeOff.released.connect(self.planner.take_off)
         self.btnLanding.released.connect(self.planner.landing)
         self.btnA2B.released.connect(self.planner.task_a2b)
+        self.btnTask3.released.connect(self.planner.task3)
 
         # self.sliderThImage.valueChanged.connect(self.controller.change_th)
 
@@ -195,6 +196,9 @@ class AITab(Tab, plot_tab_class):
 
         self.controller.PositionUpdated.connect(self._data_received)
         self.controller.OutputUpdated.connect(self._output_controller_updated)
+
+        self.controller.ErrorUpdated.connect(self._slot_error_updated)
+        self.btnErrorReset.released.connect(self.controller.slot_reset_error)
         #
         #
         # self._plot.set_title('Position')
@@ -257,6 +261,13 @@ class AITab(Tab, plot_tab_class):
         # self._plot.add_curve('target.y', self.colors[color_selector % len(self.colors)])
         # color_selector += 1
         # self._plot.add_curve('target.z', self.colors[color_selector % len(self.colors)])
+
+    def _slot_error_updated(self, x_error, y_error, z_error, error_cnt):
+
+        self.lblXError.setText('Sum : {} , Avg : {}'.format(x_error, x_error / error_cnt))
+        self.lblYError.setText('Sum : {} , Avg : {}'.format(y_error, y_error / error_cnt))
+        self.lblZError.setText('Sum : {} , Avg : {}'.format(z_error, z_error / error_cnt))
+        self.lblAllError.setText('Sum : {} , Avg : {}'.format(x_error + y_error + z_error, (x_error + y_error + z_error) / error_cnt))
 
     def _slot_image_updated(self, cvRGBImg):
 

@@ -1,3 +1,5 @@
+from TiffImagePlugin import _cvt_res
+
 __author__ = 'messierz'
 
 import time
@@ -24,6 +26,10 @@ class Controller(QtCore.QThread):
     # PIDDataUpdated = QtCore.pyqtSignal(object, float)
     PositionUpdated = QtCore.pyqtSignal(int, int, int, int, int, int)
     OutputUpdated   = QtCore.pyqtSignal(float, float, float)
+
+    # Sum x, y, z, error count
+    ErrorUpdated   = QtCore.pyqtSignal(float, float, float, int)
+
     ImageUpdated = QtCore.pyqtSignal(object)
     DepthUpdated = QtCore.pyqtSignal(str)
 
@@ -38,8 +44,6 @@ class Controller(QtCore.QThread):
 
     _bg_subtract_state = 1
 
-
-
     _MEAN_DATA_CNT = 10
 
     _pad_roll = 0
@@ -48,10 +52,11 @@ class Controller(QtCore.QThread):
     _pad_thrust = 0
 
     _last_roll = 0
-    _last_agg_roll = True
+    _last_agg_roll = False
     _last_pitch = 0
-    _last_agg_pitch = True
+    _last_agg_pitch = False
     _last_thrust = 0
+    _agg_pid = False
 
     _mean_arr_z = []
     _mean_arr_y = []
@@ -64,6 +69,12 @@ class Controller(QtCore.QThread):
     _emergency_stop = 0
 
     _obstacles = []
+
+    _all_error = [0.0,0.0,0.0,0.0]
+    _error_cnt = 0
+
+    _show_depth_grid = False
+    _show_obstacles = False
 
     def __init__(self, cf):
         QtCore.QThread.__init__(self)
@@ -79,9 +90,9 @@ class Controller(QtCore.QThread):
         self._is_copter_found = False
         self._copter_pos = (0,0,0)
 
-        self.set_x = 320
-        self.set_y = 240
-        self.set_z = 150
+        self.set_x = 150 #320
+        self.set_y = 500 #240
+        self.set_z = 140
 
         # Max depth : 208 cm, Min depth : 101 cm
         self.min_depth_in_cm = self._raw_depth_to_cm(self.min_raw_depth)
@@ -90,10 +101,11 @@ class Controller(QtCore.QThread):
 
         self.r_pid = RollPitchPID(P=0.05, D=1.0, I=0.00025, set_point=0.0)
         # self.r_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
-        self.p_pid = PitchPID(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+        self.p_pid = RollPitchPID(P=0.05, D=1.0, I=0.00025, set_point=0.0)
+        # self.p_pid = PitchPID(P=0.05, D=1.0, I=0.00025)
         # self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
 
-        self.th_pid = ThrustPID(Kp=100, Ki=200, Kd=50, Input=0, Output=0, Setpoint=150, ControllerDirection=1)
+        self.th_pid = ThrustPID(Kp=100, Ki=200, Kd=50, Input=0, Output=0, Setpoint=self.set_z, ControllerDirection=1)
         self.th_pid.SetOutputLimits(-20000, 20000)
 
         self.calc_pitch = 0
@@ -108,7 +120,7 @@ class Controller(QtCore.QThread):
         # EXPR_CNT = 2
         # POINT_CNT = 2
         # FILENAME = 'Expr2_A_to_B_{}_Points_'.format(POINT_CNT)
-        FILENAME = 'Expr1_Hold_Pos_'
+        FILENAME = 'Expr3_Simple_Path_'
         PATH = '/Users/pnrisk/log/'
         if self._is_logging:
             ts = time.time()
@@ -117,12 +129,12 @@ class Controller(QtCore.QThread):
 
         self.last_thrust = 0
 
-        fps = 15
-        capSize = (640,480) # this is the size of my source video
-        fourcc = cv2.cv.CV_FOURCC('m', 'p', '4', 'v') # note the lower case
-        self.writer = cv2.VideoWriter()
-        success = self.writer.open(PATH+st+'.move',fourcc,fps,capSize,True)
-        self._is_start_rec_vid = False
+        # fps = 30
+        # capSize = (640,480) # this is the size of my source video
+        # fourcc = cv2.cv.CV_FOURCC('m', 'p', '4', 'v') # note the lower case
+        # self.writer = cv2.VideoWriter()
+        # success = self.writer.open(PATH+st+'.move',fourcc,fps,capSize,True)
+        # self._is_start_rec_vid = False
 
     def _raw_depth_to_cm(self, raw_depth):
 
@@ -139,6 +151,7 @@ class Controller(QtCore.QThread):
         self.th_pid.SetMode(en)
         self.r_pid.set_mode(en)
         self.p_pid.set_mode(en)
+        self.p_pid.reset()
 
     def update_thrust_from_pad(self, r, p, y, thrust):
 
@@ -167,6 +180,8 @@ class Controller(QtCore.QThread):
         self._bg_subtract_state = 3
         pass
 
+
+
     def change_th(self, value):
         logging.info("depth : {}".format(value))
         self.depth_th = value
@@ -175,6 +190,11 @@ class Controller(QtCore.QThread):
 
     def find_obstacle(self):
         self._bg_subtract_state = 2
+        self._obstacles[:] = []
+        logging.info('clear list {}'.format(len(self._obstacles)))
+
+    def get_obstacles(self):
+        return self._obstacles
 
     def show_bg(self):
         if self._bg_subtract_state != 4:
@@ -200,11 +220,15 @@ class Controller(QtCore.QThread):
             ''' Already to process '''
             pass
 
-        elif self._bg_subtract_state == 2:
-            ''' Build Obstacle '''
-            del self._obstacles
-            self._obstacles = []
-            pass
+        # if self._bg_subtract_state == 2:
+        #     ''' Build Obstacle '''
+        #     # del self._obstacles[:]
+        #     self._obstacles[:] = []
+        #     logging.info('clear list {}'.format(len(self._obstacles)))
+
+            # self._obstacles = None
+            # self._obstacles = []
+
         # elif self._bg_subtract_state == 4:
         #     return (is_getpos_success, pos_result)
         # elif self._bg_subtract_state == 0:
@@ -215,25 +239,26 @@ class Controller(QtCore.QThread):
 
         try:
             raw_depth = freenect.sync_get_depth()[0]
-            raw_rgb = freenect.sync_get_video()[0]
+            # raw_rgb = freenect.sync_get_video()[0]
         except:
             raw_depth = None
-            raw_rgb = None
+            # raw_rgb = None
 
         if raw_depth == None:
             return (False, ret_pos)
 
-        if self._is_start_rec_vid:
-            raw_rgb = raw_rgb[:, :, ::-1]  # RGB -> BGR
-            self.writer.write(raw_rgb)
+        # show_depth_image = frame_convert.my_depth_convert(np.copy(raw_depth))
+        # show_depth_image = frame_convert.video_cv(raw_rgb)
+        # if self._is_start_rec_vid:
+        #     raw_rgb = raw_rgb[:, :, ::-1]  # RGB -> BGR
+        #     self.writer.write(raw_rgb)
 
         # Normal Threshold
         max_raw_depth = 917
         min_raw_depth = 750
         # raw_depth[raw_depth > max_raw_depth] = 0
 
-        if self._bg_subtract_state == 1:
-            # Remove obstacles
+        if len(self._obstacles) >= 1 and self._bg_subtract_state == 1:
             obs_cnt = len(self._obstacles)
             for i in xrange(obs_cnt):
                 x,y,w,h,z = self._obstacles[i]
@@ -260,6 +285,8 @@ class Controller(QtCore.QThread):
 
         ret, th_img = cv2.threshold( img_depth, 1, 255, cv2.THRESH_BINARY_INV )
 
+        # cvRGBImg = cv2.cvtColor(raw_rgb, cv2.cv.CV_GRAY2RGB)
+        # cvRGBImg = raw_rgb
         cvRGBImg = cv2.cvtColor(th_img, cv2.cv.CV_GRAY2RGB)
 
         ''' Old threshold method '''
@@ -279,7 +306,7 @@ class Controller(QtCore.QThread):
             area = cv2.contourArea(cnt)
             # logging.info("area : {}".format(area))
             ''' Copter area '''
-            if area > 200 and area < 1800:
+            if area > 300 and area < 1800:
 
                 copter_count += 1
 
@@ -334,32 +361,33 @@ class Controller(QtCore.QThread):
 
                     ''' Draw position '''
                     cv2.circle(cvRGBImg,(mean_x, mean_y), 2, (0,0,255), -1)
-                    str_out = '{}, {}'.format(mean_x, mean_y)
+                    str_out = '{}, {}, {}'.format(mean_x, mean_y, mean_z)
                     cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
 
                     # mean_z
                     cv2.line(cvRGBImg, (0,self.set_y), (639,self.set_y), (0,0,255), 2)
                     cv2.line(cvRGBImg, (self.set_x,0), (self.set_x,479), (0,0,255), 2)
 
-                    for i in xrange(1, 12):
-                        y = int((i * ((mean_z * -0.0341) + 9.426) * 10) + 240)
-                        if y >= 0 and y < 480:
-                            cv2.line(cvRGBImg, (0,y), (639,y), (0,255,0), 2)
+                    if self._show_depth_grid:
+                        for i in xrange(1, 12):
+                            y = int((i * ((mean_z * -0.0341) + 9.426) * 10) + 240)
+                            if y >= 0 and y < 480:
+                                cv2.line(cvRGBImg, (0,y), (639,y), (0,255,0), 2)
 
-                        y = int((-i * ((mean_z * -0.0341) + 9.426) * 10) + 240)
-                        if y >= 0 and y < 480:
-                            cv2.line(cvRGBImg, (0,y), (639,y), (255,0,0), 2)
+                            y = int((-i * ((mean_z * -0.0341) + 9.426) * 10) + 240)
+                            if y >= 0 and y < 480:
+                                cv2.line(cvRGBImg, (0,y), (639,y), (255,0,0), 2)
 
-                    for i in xrange(1, 20):
-                        x1 = int((i * ((mean_z * -0.0322) + 8.9439) * 10) + 320)
-                        x = x1
-                        if x >= 0 and x < 640:
-                            cv2.line(cvRGBImg, (x,0), (x,479), (0,255,0), 2)
+                        for i in xrange(1, 20):
+                            x1 = int((i * ((mean_z * -0.0322) + 8.9439) * 10) + 320)
+                            x = x1
+                            if x >= 0 and x < 640:
+                                cv2.line(cvRGBImg, (x,0), (x,479), (0,255,0), 2)
 
-                        x2 = int(((-1 * i) * (((mean_z * -0.0322) + 8.9439) * 10)) + 320)
-                        x = x2
-                        if x >= 0 and x < 640:
-                            cv2.line(cvRGBImg, (x,0), (x,479), (255,0,0), 2)
+                            x2 = int(((-1 * i) * (((mean_z * -0.0322) + 8.9439) * 10)) + 320)
+                            x = x2
+                            if x >= 0 and x < 640:
+                                cv2.line(cvRGBImg, (x,0), (x,479), (255,0,0), 2)
 
             elif self._bg_subtract_state == 2 and area >= 1800 and area < 50000:
                 ''' Build Obstacle '''
@@ -380,7 +408,7 @@ class Controller(QtCore.QThread):
 
                 for i in xrange(min_raw_depth, len(hist)):
                     if hist[i] <= 0: continue
-                    # print '{}  hist {}  bin {}'.format(i, hist[i], bin_edges[i])
+                    print '{}  hist {}  bin {}'.format(i, hist[i], bin_edges[i])
                     if hist[i] < min_depth_cnt:
                         min_depth_cnt = hist[i]
                         min_depth_val = bin_edges[i]
@@ -411,6 +439,16 @@ class Controller(QtCore.QThread):
 
         return (False, ret_pos)
 
+    def _y_to_cm(self,y,z):
+        return (y-240)/(((z*(-0.0341))+9.4260))
+    def _x_to_cm(self,x,z):
+        return (x-320)/(((z*(-0.0322))+8.9439))
+    def slot_reset_error(self):
+        self._all_error = [0,0,0]
+        self._error_cnt = 0
+    def slot_set_agg_pid(self, agg = False):
+        self._agg_pid = agg
+
     def set_target_x(self, x):
         self.set_x = x
 
@@ -420,8 +458,6 @@ class Controller(QtCore.QThread):
     def set_target_z(self, z):
         self.set_z = z
         self.th_pid.SetTargetPoint(z)
-
-
 
     def copter_found(self):
         return self._is_copter_found
@@ -437,9 +473,9 @@ class Controller(QtCore.QThread):
         d_time_count = 0
         n_frame_count = 0
 
-        self.p_pid.tuning(0.045, 1.0, 0.000085)
-        self.p_pid.set_integrator_limit(-20000, 20000)
-        self.r_pid.tuning(0.05, 1.0, 0.0003)
+        # self.p_pid.tuning(0.125, 2.1, 0.0005)
+        # self.p_pid.tuning(0.05, 0.05, 0.00015)
+        # self.p_pid.set_integrator_limit(-20000, 20000)
 
         while True:
 
@@ -457,22 +493,56 @@ class Controller(QtCore.QThread):
 
             if self.fly_en:
 
-
                 if found:
                     # Reset emergency count
                     self._emergency_stop = 0
-
 
                     diff_time = (time.clock() - start_time) * 1000
 
                     if self._is_logging:
                         self.file.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(diff_time, pos[0], pos[1], pos[2], self.set_x, self.set_y, self.set_z))
 
-                    # self._copter_pos = pos
+                    self._all_error[0] += math.fabs(pos[0] - self.set_x)
+                    self._all_error[1] += math.fabs(pos[1] - self.set_y)
+                    self._all_error[2] += math.fabs(pos[2] - self.set_z)
+                    self._error_cnt += 1
+                    self.ErrorUpdated.emit(self._all_error[0], self._all_error[1], self._all_error[2], self._error_cnt)
 
-                    # self.p_pid.tuning(0.1, 1.0, 0.00025)
-                    #
-                    # self.p_pid.tuning(0.05, 1.0, 0.0003)
+                    now_time = time.clock()
+
+                    # self._copter_pos = pos
+                    actual_y_cm = self._y_to_cm(pos[1], pos[2])
+                    target_y_cm = self._y_to_cm(self.set_y, pos[2])
+
+                    is_agg_pitch = False if math.fabs(actual_y_cm - target_y_cm) < 15 else True
+                    if not self._agg_pid: is_agg_pitch = False
+
+                    if self._last_agg_pitch != is_agg_pitch:
+                        self._last_agg_pitch = is_agg_pitch
+
+                        if is_agg_pitch:
+                            self.p_pid.tuning(0.12, 2.1, 0.00035)
+                        else:
+                            self.p_pid.tuning(0.05, 1.0, 0.00025)
+
+                        logging.info('pitch pid change agg : {}'.format(is_agg_pitch))
+
+                    actual_x_cm = self._x_to_cm(pos[0], pos[2])
+                    target_x_cm = self._x_to_cm(self.set_x, pos[2])
+
+                    is_agg_roll = False if math.fabs(actual_x_cm - target_x_cm) < 15 else True
+                    if not self._agg_pid: is_agg_roll = False
+
+                    if self._last_agg_roll != is_agg_roll:
+                        self._last_agg_roll = is_agg_roll
+
+                        if is_agg_roll:
+                            self.r_pid.tuning(0.085, 1.5, 0.00025)
+                        else:
+                            self.r_pid.tuning(0.05, 1.0, 0.00025)
+
+                        logging.info('roll pid change agg : {}'.format(is_agg_roll))
+
 
                     # X - Roll calculate
                     if self.r_pid.update(self.set_x - pos[0]):
@@ -554,8 +624,8 @@ class Controller(QtCore.QThread):
         if self._is_logging:
             self.file.close()
 
-        self.writer.release()
-        self.writer = None
+        # self.writer.release()
+        # self.writer = None
 
     def get_image(self):
 

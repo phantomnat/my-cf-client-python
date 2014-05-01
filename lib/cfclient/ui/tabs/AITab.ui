@@ -40,24 +40,20 @@
            <rect>
             <x>10</x>
             <y>20</y>
-            <width>332</width>
-            <height>926</height>
+            <width>238</width>
+            <height>572</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_2">
+           <property name="spacing">
+            <number>3</number>
+           </property>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_7">
              <item>
               <widget class="QPushButton" name="btnBgSub">
                <property name="text">
                 <string>Bg Subtract</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="btnObsFind">
-               <property name="text">
-                <string>Obs Find</string>
                </property>
               </widget>
              </item>
@@ -90,17 +86,38 @@
            </item>
            <item>
             <layout class="QHBoxLayout" name="hLayoutTask">
+             <property name="spacing">
+              <number>-1</number>
+             </property>
              <item>
               <widget class="QPushButton" name="btnA2B">
                <property name="text">
-                <string>A -&gt; B</string>
+                <string>Point 2 Point</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_2">
+              <widget class="QPushButton" name="btnTask3">
                <property name="text">
-                <string>PushButton</string>
+                <string>Task3</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="hLayoutTask4">
+             <item>
+              <widget class="QPushButton" name="btnObsFind">
+               <property name="text">
+                <string>Obs Find</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnPathPlan">
+               <property name="text">
+                <string>Path Plan</string>
                </property>
               </widget>
              </item>
@@ -197,7 +214,39 @@
             </widget>
            </item>
            <item>
-            <widget class="QLabel" name="label_8">
+            <layout class="QHBoxLayout" name="horizontalLayout_6">
+             <item>
+              <widget class="QPushButton" name="btnErrorReset">
+               <property name="text">
+                <string>Reset Error</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QLabel" name="lblXError">
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lblYError">
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lblZError">
+             <property name="text">
+              <string>TextLabel</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lblAllError">
              <property name="text">
               <string>TextLabel</string>
              </property>

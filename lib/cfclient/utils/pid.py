@@ -29,6 +29,7 @@
 import math
 import time
 import logging
+import sys
 
 # PID Controller from Bitcraze
 class RollPitchPID:
@@ -115,79 +116,73 @@ class RollPitchPID:
 
 class PitchPID:
 
-    isAuto = False
 
-    def __init__(self, P=1.0, I=0.0, D=10.0, Derivator=0, Integrator=0,
-                 Integrator_max=10000, Integrator_min=-10000, set_point=0.0,
-                 power=1.0):
+    def __init__(self, P=1.0, I=0.0, D=10.0):
 
         self.Kp = P
         self.Ki = I
         self.Kd = D
-        self.Derivator = Derivator
-        self.power = power
-        self.Integrator = Integrator
-        self.Integrator_max = Integrator_max
-        self.Integrator_min = Integrator_min
+
         self.last_error = 0.0
         self.last_value = 0.0
-
-        self.set_point = set_point
         self.error = 0.0
         self.output = 0.0
+        self.error_sum = 0.0
+        self.set_point = 0
+        self.maxTotal = 20
 
-    def set_integrator_limit(self, min, max):
-        if min > max: return
-        self.Integrator_max = max
-        self.Integrator_min = min
-        self.reset()
+        self.last_time = time.clock()
+        self.isAuto = False
 
-    def update(self, current_value):
+    def update(self, current_value, now_time):
         """
         Calculate PID output value for given reference input and feedback
         """
-        if not self.isAuto: return
+        if not self.isAuto: return False
+
+        # now_time = time.clock()
+
+        dt = now_time - self.last_time
 
         self.error = self.set_point - current_value
 
-        self.P_value = self.Kp * self.error
-        change = self.error - self.last_error
+        P = (self.Kp * self.error)
 
-        self.I_value = self.Integrator * self.Ki
+        self.error_sum += (self.last_error + self.error)/2. * dt #trapazoidal integration
+        I = (self.Ki * self.error_sum)
 
-        #self.D_value = self.Kd * ( self.error - self.Derivator)
-        self.D_value = self.Kd * change
-        self.Derivator = self.error
+        D = (self.Kd * ((self.last_error-self.error) / dt))
+        alpha = 0.5
+        self.last_error = self.last_error*alpha + self.error*(1.-alpha)
 
-        self.Integrator = self.Integrator + self.error
+        # Cache time for computing dt in next step
+        self.last_time  = now_time
 
-        if self.Integrator > self.Integrator_max:
-            self.Integrator = self.Integrator_max
-        elif self.Integrator < self.Integrator_min:
-            self.Integrator = self.Integrator_min
+        # Compute command
+        total = P+I-D
 
-        self.last_error = self.error
-        self.last_value = current_value
+        self.output = math.copysign(min(abs(total), self.maxTotal), total)
 
-        PID = self.P_value + self.I_value + self.D_value
-
-        self.output = PID
         return True
 
     def get_output(self):
         return self.output
 
-    def set_target(self,set_point):
+    def set_target(self, set_point):
         """
         Initilize the setpoint of PID
         """
         self.set_point = set_point
-        self.Integrator = 0
-        self.Derivator = 0
 
     def reset(self):
-        self.Integrator = 0
-        self.Derivator = 0
+        # Useful for I part
+        self.error_sum = 0.0
+
+        # Useful for D part
+        self.last_time = time.clock() # rospy.Time.now()
+
+        self.last_error = 0.0
+        self.output = 0.0
 
     def tuning(self, kp, kd, ki):
         self.Kp = kp
@@ -197,7 +192,6 @@ class PitchPID:
     def set_mode(self, mode = True):
         if mode == ~self.isAuto:
             self.reset()
-            pass
         self.isAuto = mode
 
 
@@ -256,7 +250,7 @@ class ThrustPID:
 
         deltaInput = input - self.lastInput
 
-        output = self.kp * error + self.ITerm - self.kd * deltaInput
+        output = (self.kp * error) + self.ITerm - (self.kd * deltaInput)
 
         if output > self.outMax: output = self.outMax
         elif output < self.outMin: output = self.outMin
@@ -329,3 +323,90 @@ class ThrustPID:
             self.kd = 1 - self.kd
         self.controllerDirection = direction
 
+class PID:
+    """ Classic PID Controller """
+    def __init__(self, P=1.0, I=0.0, D=0.0):
+        self.P = P
+        self.I = I
+        self.D = D
+
+        self.maxP = sys.float_info.max
+        self.maxI = sys.float_info.max
+        self.maxD = sys.float_info.max
+        self.maxTotal = sys.float_info.max
+
+        # Useful for I part
+        self.error_sum = 0.0
+
+        # Useful for D part
+        self.last_time = time.clock() #rospy.Time.now()
+        self.last_error = 0.0 # sys.float_info.max
+        self.last_output = 0.0
+        return
+
+    def fATAN(dist, r):
+        return math.degrees(math.atan(dist))*math.sqrt(r)
+    def fASIN(dist, r):
+        return math.degrees(math.asin(min(1.,max(-1, dist))))*r
+    def fLIN(dist):
+        return dist
+
+    def get_command(self, error, d=None, i=None):
+        # dt = (rtime-self.last_time).to_sec()
+        # diff time in sec
+        rtime = time.clock()
+
+        dt = rtime - self.last_time
+
+        res = 1.0
+
+        f = lambda x: self.fLIN(x, res)
+
+        P = f(self.P * error)
+
+        if i is None:
+            self.error_sum += (self.last_error+error)/2. * dt #trapazoidal integration
+            I = f(self.I * self.error_sum)
+        else:
+            self.error_sum = i
+            I = f(self.I * self.error_sum)
+
+        if d is None:
+            D = f(self.D * ((self.last_error-error) / dt))
+            alpha = 0.5
+            self.last_error = self.last_error*alpha + error*(1.-alpha)
+        else:
+            D = f(self.D * d)
+            self.last_error = 0
+
+        # Cache time for computing dt in next step
+        self.last_time  = rtime
+
+        # Compute command
+        total = P+I-D
+        self.last_output = math.copysign(min(abs(total), self.maxTotal), total)
+        return self.last_output, P, I ,D
+
+    def set_gains(self, P,I,D):
+        self.P = P
+        self.I = I
+        self.D = D
+        return
+
+    def set_limits(self, maxTotal, maxP = float("inf"), maxI = float("inf"), maxD = float("inf")):
+        self.maxP = maxP
+        self.maxI = maxI
+        self.maxD = maxD
+        self.maxTotal = maxTotal
+
+    def reset(self,t=None):
+        # Useful for I part
+        self.error_sum = 0.0
+
+        # Useful for D part
+        if time is None:
+            self.last_time = time.clock() # rospy.Time.now()
+        else:
+            self.last_time = t
+        self.last_error = 0.0 #sys.float_info.max #why max??
+        self.last_output = 0.0

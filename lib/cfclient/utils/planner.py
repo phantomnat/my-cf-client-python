@@ -15,10 +15,43 @@ class Planner(QtCore.QThread):
         self._work_state = 0
         self._state = 0
 
+    def task4(self):
 
+        self.controller.slot_reset_error()
+        self.controller.slot_set_agg_pid(True)
+
+        # Get obstacle
+        obs = self.controller.get_obstacles()
+
+
+    def task3(self):
+
+        self.controller.slot_reset_error()
+        self.controller.slot_set_agg_pid(True)
+
+        self.start_point = (550, 220, 150)
+        self.controller.set_target_x(self.start_point[0])
+        self.controller.set_target_y(self.start_point[1])
+        self.controller.set_target_z(self.start_point[2])
+        self.controller.set_auto_fly(True)
+
+        self.target_points = []
+        # self.target_points.append((550, 220, 130))
+        self.target_points.append((550, 220, 150))
+        self.target_points.append((500, 220, 140))
+        self.target_points.append((200, 220, 140))
+        self.target_points.append((140, 220, 160))
+
+        self._landing_pos = (140, 220, 190)
+
+        self._work_state = 4
 
     def take_off(self):
         self._work_state = 1
+        self._state = 0
+
+    def new_landing(self):
+        self._work_state = 9
         self._state = 0
 
     def landing(self):
@@ -27,9 +60,40 @@ class Planner(QtCore.QThread):
 
     def task_a2b(self):
         self._work_state = 3
+
+        self.controller.slot_reset_error()
+        self.controller.slot_set_agg_pid(True)
+
+        self.start_point = (550, 220, 160)
+        self.controller.set_target_x(self.start_point[0])
+        self.controller.set_target_y(self.start_point[1])
+        self.controller.set_target_z(self.start_point[2])
+        self.controller.set_auto_fly(True)
+
         self.target_points = []
-        self.target_points.append((100, 100, 150))
-        self.target_points.append((400, 400, 150))
+        self.target_points.append((550, 220, 160))
+        self.target_points.append((500, 220, 120))
+        self.target_points.append((260, 220, 120))
+        self.target_points.append((140, 220, 160))
+
+        self._landing_pos = (140, 220, 190)
+
+        # self.target_points.append((180, 150, 140))
+        #
+        # self.target_points.append((180, 391, 140))
+        # self.target_points.append((480, 391, 140))
+        # self.target_points.append((480, 150, 140))
+        # self.target_points.append((180, 150, 140))
+        #
+        # self.target_points.append((180, 391, 140))
+        # self.target_points.append((480, 391, 140))
+        # self.target_points.append((480, 150, 140))
+        # self.target_points.append((180, 150, 140))
+        #
+        # self.target_points.append((180, 391, 140))
+        # self.target_points.append((480, 391, 140))
+        # self.target_points.append((480, 150, 140))
+        # self.target_points.append((180, 150, 140))
         self._state = 0
 
     def emergency_stop(self):
@@ -55,13 +119,13 @@ class Planner(QtCore.QThread):
 
             if self._work_state == 0:
                 # IDLE
-
                 pass
 
             elif self._work_state == 1:
                 # Auto Takeoff
                 self.controller.set_auto_fly(True)
                 self._work_state = 0
+
 
             elif self._work_state == 2:
                 # Auto landing
@@ -113,8 +177,6 @@ class Planner(QtCore.QThread):
             elif self._work_state == 3:
                 ''' Task A to B '''
 
-                landing_pos = (320, 240)
-
                 if self._state == 0:
                     if len(self.target_points) > 0:
                         self.cur_target_points = self.target_points.pop(0)
@@ -131,5 +193,63 @@ class Planner(QtCore.QThread):
                     pos = self.controller.get_copter_position()
                     if self._copter_pos_around(pos, self.cur_target_points):
                         self._state = 0
+
+
+            elif self._work_state == 4:
+                ''' Task 3 '''
+
+                if self._state == 0:
+                    if len(self.target_points) > 0:
+                        self.cur_target_points = self.target_points.pop(0)
+                        self.controller.set_target_x(self.cur_target_points[0])
+                        self.controller.set_target_y(self.cur_target_points[1])
+                        self.controller.set_target_z(self.cur_target_points[2])
+                        self._state = 1
+                    else:
+                        ''' Auto landing '''
+                        self.new_landing()
+
+                elif self._state == 1:
+                    ''' Check State '''
+                    pos = self.controller.get_copter_position()
+                    if self._copter_pos_around(pos, self.cur_target_points):
+                        self._state = 0
+
+
+            elif self._work_state == 9:
+                ''' Landing '''
+                self.controller.slot_set_agg_pid(True)
+                lp = self._landing_pos
+                if self._state == 0:
+                    self.controller.set_target_x(lp[0])
+                    self.controller.set_target_y(lp[1])
+                    self.controller.set_target_z(lp[2] - 20)
+                    self._state =1
+
+                elif self._state == 1:
+                    ''' Check State '''
+                    pos = self.controller.get_copter_position()
+                    if self._copter_pos_around(pos, (lp[0], lp[1], lp[2] - 20)):
+                        self._state = 2
+
+
+                elif self._state == 2:
+                    self.controller.set_target_z(lp[2])
+                    self._time_cnt = 0
+                    self._last_time = time.clock()
+                    self._state = 3
+
+                elif self._state == 3:
+                    ''' Check State '''
+                    cur_time = time.clock()
+                    self._time_cnt += (cur_time - self._last_time) * 1000
+                    self._last_time = cur_time
+                    if self._time_cnt > 500:
+                        self._state = 4
+
+                elif self._state == 4:
+                    self.controller.set_auto_fly(False)
+                    self._work_state = 0
+                    self._state = 0
 
             time.sleep(0.0001)
