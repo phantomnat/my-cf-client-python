@@ -124,6 +124,17 @@
             </layout>
            </item>
            <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_8">
+             <item>
+              <widget class="QPushButton" name="btnFollowPath">
+               <property name="text">
+                <string>Follow Path</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
             <widget class="QLabel" name="label_4">
              <property name="text">
               <string>X position</string>

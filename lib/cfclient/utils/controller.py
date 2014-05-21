@@ -56,6 +56,8 @@ class Controller(QtCore.QThread):
     _last_pitch = 0
     _last_agg_pitch = False
     _last_thrust = 0
+    _last_agg_th = False
+
     _agg_pid = False
 
     _mean_arr_z = []
@@ -75,6 +77,9 @@ class Controller(QtCore.QThread):
 
     _show_depth_grid = False
     _show_obstacles = False
+
+    _plan_path = []
+    _follow_path = []
 
     def __init__(self, cf):
         QtCore.QThread.__init__(self)
@@ -105,7 +110,7 @@ class Controller(QtCore.QThread):
         # self.p_pid = PitchPID(P=0.05, D=1.0, I=0.00025)
         # self.p_pid = PID_RP(P=0.05, D=1.0, I=0.00025, set_point=0.0)
 
-        self.th_pid = ThrustPID(Kp=100, Ki=200, Kd=50, Input=0, Output=0, Setpoint=self.set_z, ControllerDirection=1)
+        self.th_pid = ThrustPID(Kp=150, Ki=200, Kd=50, Input=0, Output=0, Setpoint=self.set_z, ControllerDirection=1)
         self.th_pid.SetOutputLimits(-20000, 20000)
 
         self.calc_pitch = 0
@@ -135,6 +140,12 @@ class Controller(QtCore.QThread):
         # self.writer = cv2.VideoWriter()
         # success = self.writer.open(PATH+st+'.move',fourcc,fps,capSize,True)
         # self._is_start_rec_vid = False
+
+    def set_follow_path(self, path):
+        self._follow_path = path
+
+    def set_planning_path(self, path):
+        self._plan_path = path
 
     def _raw_depth_to_cm(self, raw_depth):
 
@@ -356,43 +367,125 @@ class Controller(QtCore.QThread):
 
 
                 if EMIT_IMAGE:
+                    self._show_obstacles = True
+
+                    ''' Draw obstacles '''
+                    if self._show_obstacles and len(self._obstacles) >= 1:
+                        obs_cnt = len(self._obstacles)
+                        for i in xrange(obs_cnt):
+                            _x,_y,_w,_h,_z = self._obstacles[i]
+                            _gray_val = ((self.max_depth_in_cm - self._raw_depth_to_cm(_z)) * 192) / (self.max_depth_in_cm - self.min_depth_in_cm)
+                            cv2.rectangle(cvRGBImg,(_x,_y), (_x+_w,_y+_h), Scalar(_gray_val,_gray_val,_gray_val), -1)
+
+                    ''' Draw height grid '''
+                    self._show_depth_grid = True
+                    if self._show_depth_grid:
+                        if self._show_obstacles and len(self._obstacles) >= 1:
+                            # mean_z = self._raw_depth_to_cm(_z)
+                            __z = (self.pz_to_z(1))
+                        else :
+                            __z = mean_z
+
+                        for i in xrange(1, 10):
+                            # y = int((i * ((mean_z * -0.0341) + 9.426) * 10))
+                            __y = int((i * ((__z * -0.0341) + 9.426) * 10) + 240)
+                            if __y >= 0 and __y < 480:
+                                cv2.line(cvRGBImg, (0,__y), (639,__y), (0,255,0), 1)
+                            #
+                            __y = int((-i * ((__z * -0.0341) + 9.426) * 10) + 240)
+                            if __y >= 0 and __y < 480:
+                                cv2.line(cvRGBImg, (0,__y), (639,__y), (255,0,0), 1)
+
+                        for i in xrange(1, 15):
+                            # x1 = int((i * ((mean_z * -0.0322) + 8.9439) * 10))
+                            __x = int((i * ((__z * -0.0322) + 8.9439) * 10) + 320)
+                            # __x = x1
+                            if __x >= 0 and __x < 640:
+                                cv2.line(cvRGBImg, (__x,0), (__x,479), (0,255,0), 1)
+                            #
+                            __x = int(((-1 * i) * (((__z * -0.0322) + 8.9439) * 10)) + 320)
+                            # x = x2
+                            if __x >= 0 and __x < 640:
+                                cv2.line(cvRGBImg, (__x,0), (__x,479), (255,0,0), 1)
+
+
+
+
+                    ''' Draw path '''
+                    if self._plan_path is not None and len(self._plan_path) > 1:
+                        for i in xrange(len(self._plan_path) - 1):
+
+                            # plan_z = self.pz_to_z()
+                            pz1 = self._plan_path[i][2]
+
+                            plan_x = self.px_to_x(self._plan_path[i][0], self._plan_path[i][2])
+                            plan_y = self.py_to_y(self._plan_path[i][1], self._plan_path[i][2])
+
+                            # plan_z = self.pz_to_z(self._plan_path[i+1].z)
+                            if pz1 == 1 : color = (128,0,0)
+                            elif pz1 == 2 : color = (139,0,0)
+                            elif pz1 == 3 : color = (165,42,42)
+                            elif pz1 == 4 : color = (178,34,34)
+                            elif pz1 == 5 : color = (220,20,60)
+                            elif pz1 == 6 : color = (255,0,0)
+                            elif pz1 == 7 : color = (255,99,71)
+                            elif pz1 == 8 : color = (255,127,80)
+                            elif pz1 == 9 : color = (255,165,0)
+                            else : color = (255,215,0)
+
+                            plan_x_1 = self.px_to_x(self._plan_path[i+1][0], self._plan_path[i+1][2])
+                            plan_y_1 = self.py_to_y(self._plan_path[i+1][1], self._plan_path[i+1][2])
+                            #int((self._plan_path[i+1].y * ((plan_z * -0.0341) + 9.426) * 10))
+
+                            # logging.info('start {}, {}  end {}, {}'.format(plan_x, plan_y, plan_x_1, plan_y_1))
+                            # img_x = int((plan_x * ((mean_z * -0.0322) + 8.9439) * 10))
+                            cv2.line(cvRGBImg, (plan_x, plan_y), (plan_x_1, plan_y_1), color, 5)
+
+                    elif self._follow_path is not None and len(self._follow_path) > 1:
+                        for i in xrange(len(self._follow_path) - 1):
+
+                            # plan_z = self.pz_to_z()
+                            pz1 = self.z_to_pz(self._follow_path[i][2])
+
+                            plan_x = self._follow_path[i][0]
+                            plan_y = self._follow_path[i][1]
+
+                            if pz1 == 1 : color = (128,0,0)
+                            elif pz1 == 2 : color = (139,0,0)
+                            elif pz1 == 3 : color = (165,42,42)
+                            elif pz1 == 4 : color = (178,34,34)
+                            elif pz1 == 5 : color = (220,20,60)
+                            elif pz1 == 6 : color = (255,0,0)
+                            elif pz1 == 7 : color = (255,99,71)
+                            elif pz1 == 8 : color = (255,127,80)
+                            elif pz1 == 9 : color = (255,165,0)
+                            else : color = (255,215,0)
+
+                            plan_x_1 = self._follow_path[i+1][0]
+                            plan_y_1 = self._follow_path[i+1][1]
+
+                            cv2.line(cvRGBImg, (plan_x, plan_y), (plan_x_1, plan_y_1), color, 5)
+
                     ''' Draw bounding rect '''
+                    cv2.rectangle(cvRGBImg,(x,y), (x+w,y+h), Scalar(255,255,255), -1)
                     cv2.rectangle(cvRGBImg,(x,y), (x+w,y+h), Scalar(255,0,0), 1)
 
                     ''' Draw position '''
-                    cv2.circle(cvRGBImg,(mean_x, mean_y), 2, (0,0,255), -1)
+                    cv2.circle(cvRGBImg,(mean_x, mean_y), 4, (0,0,255), -1)
                     str_out = '{}, {}, {}'.format(mean_x, mean_y, mean_z)
                     cv2.putText(cvRGBImg, str_out, (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
 
-                    # mean_z
-                    cv2.line(cvRGBImg, (0,self.set_y), (639,self.set_y), (0,0,255), 2)
-                    cv2.line(cvRGBImg, (self.set_x,0), (self.set_x,479), (0,0,255), 2)
 
-                    if self._show_depth_grid:
-                        for i in xrange(1, 12):
-                            y = int((i * ((mean_z * -0.0341) + 9.426) * 10) + 240)
-                            if y >= 0 and y < 480:
-                                cv2.line(cvRGBImg, (0,y), (639,y), (0,255,0), 2)
 
-                            y = int((-i * ((mean_z * -0.0341) + 9.426) * 10) + 240)
-                            if y >= 0 and y < 480:
-                                cv2.line(cvRGBImg, (0,y), (639,y), (255,0,0), 2)
-
-                        for i in xrange(1, 20):
-                            x1 = int((i * ((mean_z * -0.0322) + 8.9439) * 10) + 320)
-                            x = x1
-                            if x >= 0 and x < 640:
-                                cv2.line(cvRGBImg, (x,0), (x,479), (0,255,0), 2)
-
-                            x2 = int(((-1 * i) * (((mean_z * -0.0322) + 8.9439) * 10)) + 320)
-                            x = x2
-                            if x >= 0 and x < 640:
-                                cv2.line(cvRGBImg, (x,0), (x,479), (255,0,0), 2)
+                    ''' Draw target '''
+                    LINE_SIZE = 1
+                    cv2.line(cvRGBImg, (0,self.set_y), (639,self.set_y), (0,0,255), LINE_SIZE)
+                    cv2.line(cvRGBImg, (self.set_x,0), (self.set_x,479), (0,0,255), LINE_SIZE)
 
             elif self._bg_subtract_state == 2 and area >= 1800 and area < 50000:
                 ''' Build Obstacle '''
                 x,y,w,h = cv2.boundingRect(cnt)
-                padding_value = 2
+                padding_value = 25
                 x = x-padding_value if x-padding_value >= 0 else 0
                 y = y-padding_value if y-padding_value >= 0 else 0
                 w = w+(padding_value + padding_value) if x+w+(padding_value + padding_value) < 640 else 640
@@ -408,13 +501,13 @@ class Controller(QtCore.QThread):
 
                 for i in xrange(min_raw_depth, len(hist)):
                     if hist[i] <= 0: continue
-                    print '{}  hist {}  bin {}'.format(i, hist[i], bin_edges[i])
-                    if hist[i] < min_depth_cnt:
-                        min_depth_cnt = hist[i]
-                        min_depth_val = bin_edges[i]
+                    # logging.info('{}  hist {}  bin {}'.format(i, hist[i], bin_edges[i]))
+                    if i < min_depth_cnt:
+                        min_depth_cnt = i
+                        # min_depth_val = bin_edges[i]
 
-                min_depth_val -= 5
-
+                min_depth_val = min_depth_cnt - 5
+                min_depth_val = 882
 
                 self._obstacles.append([x,y,w,h,min_depth_val])
 
@@ -440,9 +533,75 @@ class Controller(QtCore.QThread):
         return (False, ret_pos)
 
     def _y_to_cm(self,y,z):
-        return (y-240)/(((z*(-0.0341))+9.4260))
+        return (y)/(((z*(-0.0341))+9.4260))
     def _x_to_cm(self,x,z):
-        return (x-320)/(((z*(-0.0322))+8.9439))
+        return (x)/(((z*(-0.0322))+8.9439))
+
+    ''' Depth X to Plan X '''
+    def x_to_px(self, x, z, ceil=False):
+
+        return int(math.ceil(self._x_to_cm(x-320, z) / 10.0)) + 12
+
+        # pz = self.z_to_pz(z)
+        # is_ceil = True if x >= 320 else False
+        # if is_ceil: px = int(math.ceil(self._x_to_cm(x-320, z) / 10.0))
+        # else: px = int(math.floor(self._x_to_cm(x-320, z) / 10.0))
+        # return px + 12
+
+        # if pz == 1: px = px + 12
+        # else: return int(math.floor(self._x_to_cm(x, z) / 10.0))
+
+    ''' Depth Y to Plan Y '''
+    def y_to_py(self, y, z, ceil=False):
+
+        return int(math.ceil(self._y_to_cm(y-240, z) / 10.0)) + 10
+
+        # is_ceil = True if y >= 240 else False
+        # if is_ceil: py = int(math.ceil(self._y_to_cm(y-240, z) / 10.0))
+        # else: py = int(math.floor(self._y_to_cm(y-240, z) / 10.0))
+        # return py + 10
+
+        # if ceil: return int(math.ceil(self._y_to_cm(y, z) / 10.0))
+        # else: return int(math.floor(self._y_to_cm(y, z) / 10.0))
+
+    ''' Plan X to Depth X '''
+    def px_to_x(self, px, pz, ceil=False):
+
+        x = int(math.ceil((px - 12) * ((self.pz_to_z(pz) * -0.0322) + 8.9439) * 10) + 320)
+        x = 639 if x >= 640 else x
+        x = 0 if x < 0 else x
+        return x
+        # if ceil: return int(math.ceil(px * ((self.pz_to_z(pz) * -0.0322) + 8.9439) * 10))
+        # else: return int(math.floor(px * ((self.pz_to_z(pz) * -0.0322) + 8.9439) * 10))
+
+        # return int((px * ((self.pz_to_z(pz) * -0.0322) + 8.9439) * 10))
+
+    ''' Plan Y to Depth Y '''
+    def py_to_y(self, py, pz, ceil=False):
+
+        y = int(math.ceil((py - 10) * ((self.pz_to_z(pz) * -0.0341) + 9.426) * 10) + 240)
+        y = 479 if y > 479 else y
+        y = 0 if y < 0 else y
+
+        return y
+
+        # if ceil: return int(math.ceil(py * ((self.pz_to_z(pz) * -0.0341) + 9.426) * 10))
+        # else: return int(math.floor(py * ((self.pz_to_z(pz) * -0.0341) + 9.426) * 10))
+
+        # return int((py * ((self.pz_to_z(pz) * -0.0341) + 9.426) * 10))
+
+    ''' Plan Z to Depth Z '''
+    def pz_to_z(self, plan_z):
+        return int(200 - (plan_z * 10))
+
+    ''' Depth Z to Plan Z '''
+    def z_to_pz(self, z):
+        plan_z = 200 - z
+        plan_z = 0 if plan_z < 0 else plan_z
+        plan_z = 100 if plan_z > 100 else plan_z
+        return int(math.ceil(plan_z / 10.0))
+
+
     def slot_reset_error(self):
         self._all_error = [0,0,0]
         self._error_cnt = 0
@@ -475,6 +634,8 @@ class Controller(QtCore.QThread):
 
         # self.p_pid.tuning(0.125, 2.1, 0.0005)
         # self.p_pid.tuning(0.05, 0.05, 0.00015)
+        self.p_pid.tuning(0.05, 1.0, 0.0001)
+        self.r_pid.tuning(0.05, 1.0, 0.0001)
         # self.p_pid.set_integrator_limit(-20000, 20000)
 
         while True:
@@ -514,35 +675,59 @@ class Controller(QtCore.QThread):
                     actual_y_cm = self._y_to_cm(pos[1], pos[2])
                     target_y_cm = self._y_to_cm(self.set_y, pos[2])
 
-                    is_agg_pitch = False if math.fabs(actual_y_cm - target_y_cm) < 15 else True
+                    is_agg_pitch = False if math.fabs(actual_y_cm - target_y_cm) < 10 else True
                     if not self._agg_pid: is_agg_pitch = False
+                    is_agg_pitch = False
 
                     if self._last_agg_pitch != is_agg_pitch:
                         self._last_agg_pitch = is_agg_pitch
 
                         if is_agg_pitch:
-                            self.p_pid.tuning(0.12, 2.1, 0.00035)
+                            # self.p_pid.tuning(0.15, 2.1, 0) # 0.00035)
+                            self.p_pid.tuning(0.05, 1.0, 0.0001)
+
                         else:
-                            self.p_pid.tuning(0.05, 1.0, 0.00025)
+                            self.p_pid.tuning(0.05, 1.0, 0.0001)
 
                         logging.info('pitch pid change agg : {}'.format(is_agg_pitch))
 
                     actual_x_cm = self._x_to_cm(pos[0], pos[2])
                     target_x_cm = self._x_to_cm(self.set_x, pos[2])
 
-                    is_agg_roll = False if math.fabs(actual_x_cm - target_x_cm) < 15 else True
+                    is_agg_roll = False if math.fabs(actual_x_cm - target_x_cm) < 10 else True
                     if not self._agg_pid: is_agg_roll = False
+                    is_agg_roll = False
 
                     if self._last_agg_roll != is_agg_roll:
                         self._last_agg_roll = is_agg_roll
 
                         if is_agg_roll:
-                            self.r_pid.tuning(0.085, 1.5, 0.00025)
+                            # self.r_pid.tuning(0.085, 1.5, 0.00025)
+                            self.r_pid.tuning(0.05, 1.0, 0.00015)
+
                         else:
-                            self.r_pid.tuning(0.05, 1.0, 0.00025)
+                            # self.r_pid.tuning(0.025, 1.0, 0.00015)
+                            self.r_pid.tuning(0.05, 1.0, 0.00015)
+
 
                         logging.info('roll pid change agg : {}'.format(is_agg_roll))
 
+                    actual_z_cm = pos[2]
+                    target_z_cm = self.set_z
+
+                    is_agg_th = False if math.fabs(actual_z_cm - target_z_cm) < 10 else True
+                    if not self._agg_pid: is_agg_th = False
+                    is_agg_th = False
+
+                    if self._last_agg_th != is_agg_th:
+                        self._last_agg_th = is_agg_th
+
+                        if is_agg_th:
+                            self.th_pid.SetTuning(300, 200, 50)
+                        else:
+                            self.th_pid.SetTuning(150, 200, 50)
+
+                        logging.info('roll pid change agg : {}'.format(is_agg_th))
 
                     # X - Roll calculate
                     if self.r_pid.update(self.set_x - pos[0]):
@@ -592,7 +777,7 @@ class Controller(QtCore.QThread):
                     self.cf.commander.send_setpoint(final_roll, final_pitch, 0, self.thrust)
 
                 else:
-                    self._emergency_stop += 1
+                    self._emergency_stop += 45
 
                 if self._emergency_stop > 10:
                     ''' Emergency Stop when copter not found '''

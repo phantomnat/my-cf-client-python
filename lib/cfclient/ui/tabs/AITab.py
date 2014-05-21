@@ -189,6 +189,9 @@ class AITab(Tab, plot_tab_class):
         self.btnLanding.released.connect(self.planner.landing)
         self.btnA2B.released.connect(self.planner.task_a2b)
         self.btnTask3.released.connect(self.planner.task3)
+        self.btnPathPlan.released.connect(self.planner.path_planning)
+        self.btnFollowPath.released.connect(self.planner.task4)
+
 
         # self.sliderThImage.valueChanged.connect(self.controller.change_th)
 
@@ -271,6 +274,8 @@ class AITab(Tab, plot_tab_class):
 
     def _slot_image_updated(self, cvRGBImg):
 
+        # return
+        #
         qimg = QtGui.QImage(cvRGBImg.data,cvRGBImg.shape[1], cvRGBImg.shape[0], QtGui.QImage.Format_RGB888)
         # qimg = QtGui.QImage(raw_rgb.data,raw_rgb.shape[1], raw_rgb.shape[0], QtGui.QImage.Format_RGB888)
 
