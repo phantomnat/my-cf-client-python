@@ -5,7 +5,7 @@ config.json
 dist/*
 build/*
 # PC client settings
-conf/*
+# conf/*
 
 # Eclipse settings
 .project
