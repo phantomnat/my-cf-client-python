@@ -4,8 +4,6 @@ __author__ = 'pnrisk'
 from PyQt4 import QtCore, QtGui
 import time
 import logging
-from Point3D import Point3D
-import math
 import PathPlanning
 from PathPlanning import PathFinding
 
