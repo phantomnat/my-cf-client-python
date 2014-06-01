@@ -1,0 +1,22 @@
+{
+  "client_side_xmode": false, 
+  "link_uri": "radio://0/66/2M", 
+  "input_device": "Controller", 
+  "slew_limit": 45, 
+  "max_rp": 30, 
+  "ui_update_period": 100, 
+  "trim_pitch": 0.0, 
+  "device_config_mapping": {
+    "Controller": "xbox360_mode1"
+  }, 
+  "slew_rate": 30, 
+  "auto_reconnect": false, 
+  "max_yaw": 200, 
+  "flightmode": "Normal", 
+  "enable_debug_driver": false, 
+  "open_tabs": "AI,Parameters,Flight Control", 
+  "input_device_blacklist": "(VirtualBox|VMware)", 
+  "trim_roll": 0.0, 
+  "max_thrust": 80, 
+  "min_thrust": 25
+}
