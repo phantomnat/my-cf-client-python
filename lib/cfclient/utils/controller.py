@@ -121,7 +121,7 @@ class Controller(QtCore.QThread):
         self.trim_roll = 0
         self.trim_pitch = 0
 
-        self._is_logging = True
+        self._is_logging = False
         # EXPR_CNT = 2
         # POINT_CNT = 2
         # FILENAME = 'Expr2_A_to_B_{}_Points_'.format(POINT_CNT)
